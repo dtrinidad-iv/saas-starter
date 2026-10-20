@@ -12,3 +12,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 02 | [Nuxt app with token auth](02-nuxt-auth.md) | Done |
 | 03 | [Organizations](03-organizations.md) | Done |
 | 04 | [Organization members and invitations](04-organization-members.md) | Done |
+| 05 | [Projects](05-projects.md) | Done |

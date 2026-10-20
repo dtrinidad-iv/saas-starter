@@ -62,6 +62,6 @@ Deleting or renaming organizations, a dedicated ownership-transfer flow (role ch
 - Changed from plan:
   - No `RevokeInvitation` action: revoking is one scoped `delete()` in the controller.
   - Added `EnsureCurrentOrganization` middleware (`organization` alias): 403 "No active organization." for member/invitation routes.
-  - The invitation mail takes plain values, not the model: a queued job has no current organization, so re-loading a `BelongsToOrganization` model there would find nothing.
+  - The invitation mail takes plain values, not the model. (The reason given at the time, "a queued job would find nothing", was wrong: jobs restore models without global scopes. Corrected in plan 05.)
   - `Tests\TestCase` resets scoped services before each test request, like a real request.
 - Not done: in-browser click-through (Claude in Chrome not connected).
