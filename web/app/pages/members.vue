@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Form, FormError, FormSubmitEvent, TableColumn } from '@nuxt/ui'
-import type { Invitation, Member, OrganizationRole } from '~/types/api'
+import type { Invitation, Member, Role } from '~/types/api'
 
 definePageMeta({ middleware: 'auth' })
 useSeoMeta({ title: 'Members' })
@@ -9,12 +9,18 @@ const api = useApi()
 const auth = useAuthStore()
 const organizations = useOrganizationStore()
 const toast = useToast()
-const { canManageInvitations, invitableRoles, assignableRoles, canRemove, isSelf } = useOrganizationPermissions()
-
-const roleLabels: Record<OrganizationRole, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' }
-const roleItems = (roles: OrganizationRole[]) => roles.map(role => ({ label: roleLabels[role], value: role }))
 
 // Reloaded by refreshNuxtData() when switching organizations.
+const { data: roles, refresh: refreshRoles, error: rolesError } = await useAsyncData(
+  'roles',
+  () => api<{ data: Role[] }>('/api/roles').then(response => response.data),
+  { default: () => [] },
+)
+
+const { canManageInvitations, invitableRoles, assignableRoles, canRemove, canRevoke, isSelf } = useOrganizationPermissions(roles)
+
+const roleItems = (list: Role[]) => list.map(role => ({ label: role.name, value: role.id }))
+
 const { data: members, refresh: refreshMembers, error: membersError } = await useAsyncData(
   'members',
   () => api<{ data: Member[] }>('/api/members').then(response => response.data),
@@ -37,16 +43,16 @@ const memberColumns: TableColumn<Member>[] = [
   { accessorKey: 'name', header: 'Name' },
   { accessorKey: 'role', header: 'Role' },
   { accessorKey: 'joined_at', header: 'Joined' },
-  { id: 'actions', header: '' },
+  { id: 'actions', header: () => h('span', { class: 'sr-only' }, 'Actions') },
 ]
 
-async function changeRole(member: Member, role: OrganizationRole) {
-  if (role === member.role) {
+async function changeRole(member: Member, roleId: number) {
+  if (roleId === member.role.id) {
     return
   }
   try {
-    await api(`/api/members/${member.id}`, { method: 'PATCH', body: { role } })
-    toast.add({ title: `${member.name} is now ${roleLabels[role].toLowerCase()}`, color: 'success' })
+    const response = await api<{ data: Member }>(`/api/members/${member.id}`, { method: 'PATCH', body: { role_id: roleId } })
+    toast.add({ title: `${member.name} now has the ${response.data.role.name} role`, color: 'success' })
     if (isSelf(member)) {
       await auth.fetchMe() // my own permissions changed
     }
@@ -54,7 +60,7 @@ async function changeRole(member: Member, role: OrganizationRole) {
   catch (error) {
     toast.add({ title: 'Could not change role', description: errorMessage(error), color: 'error' })
   }
-  await refreshMembers()
+  await Promise.all([refreshMembers(), refreshRoles()])
 }
 
 // Remove / leave confirmation
@@ -97,13 +103,29 @@ async function confirmRemoval() {
 }
 
 // Invite form
-interface InviteState { email: string, role: OrganizationRole }
+interface InviteState { email: string, role_id: number | undefined }
 const inviteForm = useTemplateRef<Form<InviteState>>('inviteForm')
-const inviteState = reactive<InviteState>({ email: '', role: 'member' })
+const inviteState = reactive<InviteState>({ email: '', role_id: undefined })
+
+// Default to the invitable role that can do the least.
+watch(invitableRoles, (list) => {
+  if (!list.some(role => role.id === inviteState.role_id)) {
+    inviteState.role_id = list
+      .filter(role => !role.is_owner)
+      .sort((a, b) => a.permissions.length - b.permissions.length)[0]?.id ?? list[0]?.id
+  }
+}, { immediate: true })
 const inviting = ref(false)
 
 function validateInvite(state: Partial<InviteState>): FormError[] {
-  return state.email ? [] : [{ name: 'email', message: 'Enter an email address.' }]
+  const errors: FormError[] = []
+  if (!state.email) {
+    errors.push({ name: 'email', message: 'Enter an email address.' })
+  }
+  if (!state.role_id) {
+    errors.push({ name: 'role_id', message: 'Choose a role.' })
+  }
+  return errors
 }
 
 async function onInvite(event: FormSubmitEvent<InviteState>) {
@@ -159,6 +181,25 @@ async function revoke(invitation: Invitation) {
       :description="errorMessage(membersError)"
     />
 
+    <!-- Without roles, role selects and the invite form can't offer anything. -->
+    <UAlert
+      v-if="rolesError"
+      color="error"
+      variant="subtle"
+      title="Could not load roles"
+      description="Changing roles and inviting are unavailable until they load."
+    >
+      <template #actions>
+        <UButton
+          label="Retry"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          @click="() => refreshRoles()"
+        />
+      </template>
+    </UAlert>
+
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
       <UTable
         :data="members"
@@ -182,15 +223,16 @@ async function revoke(invitation: Invitation) {
         <template #role-cell="{ row }">
           <USelect
             v-if="assignableRoles(row.original).length"
-            :model-value="row.original.role"
+            :model-value="row.original.role.id"
             :items="roleItems(assignableRoles(row.original))"
             size="sm"
-            class="w-32"
-            @update:model-value="(role) => changeRole(row.original, role as OrganizationRole)"
+            class="w-36"
+            :aria-label="`Role of ${row.original.name}`"
+            @update:model-value="(roleId) => changeRole(row.original, roleId as number)"
           />
           <UBadge
             v-else
-            :label="roleLabels[row.original.role]"
+            :label="row.original.role.name"
             variant="subtle"
           />
         </template>
@@ -247,11 +289,13 @@ async function revoke(invitation: Invitation) {
             class="w-full"
           />
         </UFormField>
-        <UFormField name="role">
+        <UFormField name="role_id">
           <USelect
-            v-model="inviteState.role"
+            v-model="inviteState.role_id"
             :items="roleItems(invitableRoles)"
-            class="w-32"
+            placeholder="Role"
+            aria-label="Role"
+            class="w-full sm:w-36"
           />
         </UFormField>
         <UButton
@@ -276,7 +320,8 @@ async function revoke(invitation: Invitation) {
               <p>
                 {{ invitation.email }}
                 <UBadge
-                  :label="roleLabels[invitation.role]"
+                  :label="invitation.role?.name ?? 'Role deleted'"
+                  :color="invitation.role ? 'primary' : 'warning'"
                   variant="subtle"
                   size="sm"
                   class="ml-1"
@@ -296,6 +341,7 @@ async function revoke(invitation: Invitation) {
               </p>
             </div>
             <UButton
+              v-if="canRevoke(invitation)"
               label="Revoke"
               color="neutral"
               variant="ghost"

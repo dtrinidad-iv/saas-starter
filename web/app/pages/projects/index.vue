@@ -10,6 +10,7 @@ const route = useRoute()
 const router = useRouter()
 const organizations = useOrganizationStore()
 const toast = useToast()
+const { can } = useOrganizationPermissions()
 
 // Search and page live in the URL (?search=&page=) so reload and Back keep them.
 const queryPage = () => Math.max(1, Number.parseInt(String(route.query.page ?? ''), 10) || 1)
@@ -226,6 +227,7 @@ async function destroy() {
       </div>
       <!-- The button is the modal's trigger, so focus returns to it when the modal closes. -->
       <UModal
+        v-if="can('projects.create')"
         v-model:open="createOpen"
         title="New project"
       >

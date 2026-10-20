@@ -10,7 +10,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
   [{ label: 'Organizations', type: 'label' }],
   organizations.organizations.map(organization => ({
     label: organization.name,
-    description: organization.role,
+    description: organization.role.name,
     type: 'checkbox' as const,
     checked: organization.id === organizations.current?.id,
     onSelect: () => switchTo(organization.id),

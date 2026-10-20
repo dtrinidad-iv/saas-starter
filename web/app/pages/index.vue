@@ -42,9 +42,8 @@ const memberSince = computed(() =>
         </dt>
         <dd>
           <UBadge
-            :label="organizations.current.role"
+            :label="organizations.current.role.name"
             variant="subtle"
-            class="capitalize"
           />
         </dd>
       </dl>

@@ -1,10 +1,49 @@
-export type OrganizationRole = 'owner' | 'admin' | 'member'
+/** Mirrors App\Enums\Permission. */
+export type Permission
+  = | 'projects.view'
+    | 'projects.create'
+    | 'projects.update_own'
+    | 'projects.update_any'
+    | 'projects.delete'
+    | 'members.invite'
+    | 'members.change_role'
+    | 'members.remove'
+    | 'roles.manage'
+
+/** An entry of GET /api/permissions. */
+export interface PermissionInfo {
+  value: Permission
+  group: string
+  label: string
+}
+
+/** The short form of a role, as shown on members, invitations and organizations. */
+export interface RoleSummary {
+  id: number
+  name: string
+  /** The built-in owner role: every permission, can't be edited or deleted. */
+  is_owner: boolean
+}
+
+export interface Role extends RoleSummary {
+  /** Everything the role grants (all permissions for the owner role). */
+  permissions: Permission[]
+  members_count: number
+  created_at: string
+}
+
+export interface RolePayload {
+  name: string
+  permissions: Permission[]
+}
 
 export interface Organization {
   id: number
   name: string
   /** The current user's role in this organization. */
-  role: OrganizationRole
+  role: RoleSummary
+  /** What that role grants. */
+  permissions: Permission[]
   created_at: string
 }
 
@@ -37,14 +76,15 @@ export interface Member {
   id: number
   name: string
   email: string
-  role: OrganizationRole
+  role: RoleSummary
   joined_at: string
 }
 
 export interface Invitation {
   id: number
   email: string
-  role: OrganizationRole
+  /** Null once the role was deleted (the invitation can't be accepted then). */
+  role: RoleSummary | null
   invited_by: { id: number, name: string } | null
   expires_at: string
   is_expired: boolean
@@ -55,7 +95,7 @@ export interface InvitationPreview {
   organization: { name: string }
   invited_by: string | null
   email: string
-  role: OrganizationRole
+  role: { name: string }
   expires_at: string
 }
 

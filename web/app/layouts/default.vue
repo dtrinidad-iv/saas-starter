@@ -28,6 +28,7 @@ const navigation = computed<NavigationMenuItem[]>(() => auth.user?.current_organ
   ? [
       { label: 'Projects', icon: 'i-lucide-folder', to: '/projects', active: route.path.startsWith('/projects') },
       { label: 'Members', icon: 'i-lucide-users', to: '/members', active: route.path.startsWith('/members') },
+      { label: 'Roles', icon: 'i-lucide-shield', to: '/roles', active: route.path.startsWith('/roles') },
     ]
   : [])
 </script>

@@ -65,7 +65,7 @@ async function switchAccount() {
         <strong>{{ result.invitation.invited_by ?? 'Someone' }}</strong>
         invited <strong>{{ result.invitation.email }}</strong>
         to join <strong>{{ result.invitation.organization.name }}</strong>
-        as {{ result.invitation.role === 'admin' ? 'an' : 'a' }} <strong>{{ result.invitation.role }}</strong>.
+        with the <strong>{{ result.invitation.role.name }}</strong> role.
       </p>
 
       <template #footer>
