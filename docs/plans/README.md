@@ -21,6 +21,6 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 11 | [Audit trail](11-audit-trail.md) | Done |
 | 12 | [Sidebar layout](12-sidebar-layout.md) | Done |
 | 13 | [AI usage, budget and an `ai.use` permission](13-ai-usage-budget.md) | Done |
-| 14 | [Better summaries](14-better-summaries.md) | Proposed |
+| 14 | [Better summaries](14-better-summaries.md) | Done |
 | 15 | [Streaming foundation + AI writing help](15-ai-streaming-writing-help.md) | Proposed |
 | 16 | [Project chat](16-project-chat.md) | Proposed |

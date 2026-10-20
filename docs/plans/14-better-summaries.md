@@ -1,6 +1,7 @@
 # 14 — Better summaries
 
-**Status:** Proposed
+**Status:** Done
+**Commits:** `d8c5764` (api), `32f5b05` (web)
 
 Part of the AI improvements series (plans 13–16), built and shipped in order.
 
@@ -24,6 +25,24 @@ Decisions made:
   - edited approve with validation (too many points gives 422);
   - edits only allowed on drafts;
   - backfill picks the right projects, respects `--limit`, the budget and dry-run, and never touches another organization's projects.
+
+## Changes during the build
+- **The hash is set by the job, not `RequestProjectSummary`.** It is the hash of the project as it was sent to the model. A project edited between the request and the job run then doesn't get a fresh summary flagged as stale (tested).
+- **Backfill only for creators allowed to use AI** (security review). A project is summarized only if its creator is still a member whose role has `ai.use`, like the automatic summary on create. Otherwise an organization that took `ai.use` away from every role would still have its projects sent to the provider. Skipped projects are counted in the output.
+- **The backfill's audit entry is a system one:** `summary.requested` has no actor and `metadata.source = "backfill"`. The creator is still `requested_by` and is billed in `ai_usage` (`RequestProjectSummary` takes an optional `source`).
+- **Budget in the backfill:** it skips an organization whose budget is already spent, and stops queueing once `RequestProjectSummary` refuses. On a real queue nothing is spent until the jobs run, so summaries queued past the budget fail with `budget_exceeded`. `--limit` caps how many. The README and the command output say so.
+- **Job's final write locks the row and saves only if it's still pending** (database review). Before, a job that outlived the 15-minute stale cutoff could turn its failed row back into a second draft.
+- **Approve with edits:** `edited: true` is recorded only when a field really changed, compared field by field (so key order doesn't matter). Edits sent with a rejection are ignored.
+- **Web:**
+  - A stale draft also shows Regenerate, which retires the draft.
+  - A failed save keeps the editor open (only 409/404 close it and reload), so edits aren't lost.
+  - List-level 422s (`key_points`) show on the Key points group.
+  - New `ProjectSummaryEditor.vue`.
+
+## Follow-ups (not done)
+- **Edited summaries still show the AI `model`.** Consider exposing `edited` on the summary, so human-edited text isn't presented as plain AI output.
+- **422 before 403** on approve (the Form Request validates before the policy runs). Harmless; same as the other endpoints.
+- **Backfill with no `--organization`** covers every organization (capped by `--limit`). Consider asking for confirmation in that case.
 
 ## Reuse
 - `RecordingAiClient` decorator pattern and container binding: `app/Providers/AppServiceProvider.php`
