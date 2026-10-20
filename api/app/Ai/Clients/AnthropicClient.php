@@ -7,9 +7,13 @@ use App\Ai\AiResponse;
 use App\Ai\Contracts\AiClient;
 use App\Ai\Exceptions\AiRequestFailed;
 use App\Ai\Exceptions\AiUnavailable;
+use Closure;
+use Generator;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Response;
+use Psr\Http\Message\StreamInterface;
+use RuntimeException;
 
 /**
  * Claude Messages API (POST /v1/messages) over Laravel's HTTP client.
@@ -30,9 +34,191 @@ class AnthropicClient implements AiClient
         private readonly int $maxTokens,
         private readonly ?string $fallbacks = null,
         private readonly array $fallbackModels = [],
+        private readonly int $streamTimeout = 120,
     ) {}
 
     public function generate(AiRequest $request): AiResponse
+    {
+        [$headers, $body] = $this->payload($request);
+
+        try {
+            $response = $this->http
+                ->baseUrl($this->provider['base_url'])
+                ->withHeaders($headers)
+                ->acceptJson()
+                ->connectTimeout(10)
+                ->timeout($this->timeout)
+                ->post('/v1/messages', $body);
+        } catch (ConnectionException $e) {
+            throw new AiUnavailable('Could not reach the AI provider: '.$e->getMessage(), 'connection');
+        }
+
+        if ($response->failed()) {
+            $this->throwForStatus($response);
+        }
+
+        return $this->toResponse($request, $response->json());
+    }
+
+    /**
+     * Server-sent events: message_start (input tokens), content_block_delta
+     * (text_delta goes to $onText), message_delta (stop reason, output tokens) and error.
+     */
+    public function stream(AiRequest $request, Closure $onText): AiResponse
+    {
+        if ($request->schema !== null) {
+            throw new AiRequestFailed('Structured output can\'t be streamed.', 'unsupported');
+        }
+
+        [$headers, $body] = $this->payload($request);
+        $body['stream'] = true;
+
+        try {
+            $response = $this->http
+                ->baseUrl($this->provider['base_url'])
+                ->withHeaders($headers)
+                ->accept('text/event-stream')
+                ->withOptions(['stream' => true])
+                ->connectTimeout(10)
+                ->timeout($this->streamTimeout)
+                ->post('/v1/messages', $body);
+        } catch (ConnectionException $e) {
+            throw new AiUnavailable('Could not reach the AI provider: '.$e->getMessage(), 'connection');
+        }
+
+        if ($response->failed()) {
+            $this->throwForStatus($response);
+        }
+
+        $state = ['text' => '', 'model' => $this->model, 'input' => 0, 'output' => 0, 'stop' => null];
+        // By reference: what has arrived when the stream stops.
+        $partial = function () use (&$state) {
+            return $this->partialResponse($state);
+        };
+        $source = $response->toPsrResponse()->getBody();
+        // With stream => true, Guzzle's timeout only limits each read; this limits the whole answer.
+        $deadline = microtime(true) + $this->streamTimeout;
+
+        foreach ($this->events($source, $partial) as $event) {
+            if (microtime(true) > $deadline) {
+                $source->close();
+
+                throw new AiUnavailable('The AI provider stream took too long.', 'timeout', $partial());
+            }
+
+            $type = $event['type'] ?? null;
+
+            if ($type === 'message_start') {
+                $state['model'] = (string) ($event['message']['model'] ?? $this->model);
+                $state['input'] = (int) ($event['message']['usage']['input_tokens'] ?? 0);
+                $state['output'] = (int) ($event['message']['usage']['output_tokens'] ?? 0);
+            } elseif ($type === 'content_block_delta' && ($event['delta']['type'] ?? null) === 'text_delta') {
+                $text = (string) ($event['delta']['text'] ?? '');
+                $state['text'] .= $text;
+
+                if ($text !== '' && $onText($text) === false) {
+                    $source->close();
+                    $state['stop'] = 'aborted';
+
+                    return $partial();
+                }
+            } elseif ($type === 'message_delta') {
+                $state['stop'] = $event['delta']['stop_reason'] ?? $state['stop'];
+                $state['input'] = (int) ($event['usage']['input_tokens'] ?? $state['input']);
+                $state['output'] = (int) ($event['usage']['output_tokens'] ?? $state['output']);
+            } elseif ($type === 'error') {
+                $errorType = (string) ($event['error']['type'] ?? 'unknown_error');
+                $message = "AI provider stream error: {$errorType}";
+
+                // Overloaded and server errors may work later; anything else won't.
+                if (in_array($errorType, ['overloaded_error', 'api_error', 'rate_limit_error'], true)) {
+                    throw new AiUnavailable($message, $errorType, $partial());
+                }
+
+                throw new AiRequestFailed($message, $errorType, $partial());
+            }
+        }
+
+        if ($state['stop'] === null) {
+            throw new AiUnavailable('The AI provider stream ended early.', 'stream_incomplete', $partial());
+        }
+
+        return $this->checkStopReason(new AiResponse(
+            text: $state['text'],
+            json: null,
+            model: $state['model'],
+            inputTokens: $state['input'],
+            outputTokens: $state['output'],
+            stopReason: (string) $state['stop'],
+        ));
+    }
+
+    /**
+     * The decoded data of each event in the body, as it arrives.
+     *
+     * @param  Closure(): AiResponse  $partial
+     * @return Generator<int, array<string, mixed>>
+     */
+    private function events(StreamInterface $source, Closure $partial): Generator
+    {
+        $buffer = '';
+
+        while (true) {
+            try {
+                $chunk = $source->eof() ? '' : $source->read(8192);
+            } catch (RuntimeException $e) {
+                throw new AiUnavailable('The AI provider stream broke off: '.$e->getMessage(), 'connection', $partial());
+            }
+
+            if ($chunk === '' && $source->eof()) {
+                break;
+            }
+
+            $buffer .= str_replace("\r\n", "\n", $chunk);
+
+            while (($end = strpos($buffer, "\n\n")) !== false) {
+                $block = substr($buffer, 0, $end);
+                $buffer = substr($buffer, $end + 2);
+
+                $data = collect(explode("\n", $block))
+                    ->filter(fn (string $line) => str_starts_with($line, 'data:'))
+                    ->map(fn (string $line) => ltrim(substr($line, 5)))
+                    ->implode("\n");
+
+                $event = json_decode($data, true);
+
+                if (is_array($event)) {
+                    yield $event;
+                }
+            }
+        }
+    }
+
+    /**
+     * What arrived before a stream stopped. The provider only reports output tokens at
+     * the end, so they're estimated from the text (about 4 characters per token) to keep
+     * stopped streams from counting as nearly free against the budget.
+     *
+     * @param  array{text: string, model: string, input: int, output: int, stop: string|null}  $state
+     */
+    private function partialResponse(array $state): AiResponse
+    {
+        return new AiResponse(
+            text: $state['text'],
+            json: null,
+            model: $state['model'],
+            inputTokens: $state['input'],
+            outputTokens: max($state['output'], (int) ceil(strlen($state['text']) / 4)),
+            stopReason: (string) ($state['stop'] ?? 'incomplete'),
+        );
+    }
+
+    /**
+     * Headers and body for POST /v1/messages.
+     *
+     * @return array{0: array<string, string>, 1: array<string, mixed>}
+     */
+    private function payload(AiRequest $request): array
     {
         if (blank($this->provider['api_key'])) {
             throw new AiRequestFailed('ANTHROPIC_API_KEY is not set.', 'missing_api_key');
@@ -63,23 +249,7 @@ class AnthropicClient implements AiClient
             $body['fallbacks'] = $this->fallbacks;
         }
 
-        try {
-            $response = $this->http
-                ->baseUrl($this->provider['base_url'])
-                ->withHeaders($headers)
-                ->acceptJson()
-                ->connectTimeout(10)
-                ->timeout($this->timeout)
-                ->post('/v1/messages', $body);
-        } catch (ConnectionException $e) {
-            throw new AiUnavailable('Could not reach the AI provider: '.$e->getMessage(), 'connection');
-        }
-
-        if ($response->failed()) {
-            $this->throwForStatus($response);
-        }
-
-        return $this->toResponse($request, $response->json());
+        return [$headers, $body];
     }
 
     private function throwForStatus(Response $response): never
@@ -105,25 +275,14 @@ class AnthropicClient implements AiClient
             ->pluck('text')
             ->implode('');
 
-        $stopReason = (string) ($data['stop_reason'] ?? '');
-
-        $response = new AiResponse(
+        $response = $this->checkStopReason(new AiResponse(
             text: $text,
             json: null,
             model: (string) ($data['model'] ?? $this->model),
             inputTokens: (int) ($data['usage']['input_tokens'] ?? 0),
             outputTokens: (int) ($data['usage']['output_tokens'] ?? 0),
-            stopReason: $stopReason,
-        );
-
-        // Check why the model stopped before trusting the content.
-        if ($stopReason === 'refusal') {
-            throw new AiRequestFailed('The model declined the request.', 'refusal', $response);
-        }
-
-        if ($stopReason === 'max_tokens') {
-            throw new AiRequestFailed('The response was cut off at max_tokens.', 'max_tokens', $response);
-        }
+            stopReason: (string) ($data['stop_reason'] ?? ''),
+        ));
 
         if ($request->schema === null) {
             return $response;
@@ -141,7 +300,21 @@ class AnthropicClient implements AiClient
             model: $response->model,
             inputTokens: $response->inputTokens,
             outputTokens: $response->outputTokens,
-            stopReason: $stopReason,
+            stopReason: $response->stopReason,
         );
+    }
+
+    // Check why the model stopped before trusting the content.
+    private function checkStopReason(AiResponse $response): AiResponse
+    {
+        if ($response->stopReason === 'refusal') {
+            throw new AiRequestFailed('The model declined the request.', 'refusal', $response);
+        }
+
+        if ($response->stopReason === 'max_tokens') {
+            throw new AiRequestFailed('The response was cut off at max_tokens.', 'max_tokens', $response);
+        }
+
+        return $response;
     }
 }

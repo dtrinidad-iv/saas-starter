@@ -48,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
                 config('ai.max_tokens'),
                 config('ai.fallbacks'),
                 config('ai.fallback_models'),
+                config('ai.stream_timeout'),
             ),
             // Tests bind their own instance (TestCase) to push responses and inspect requests.
             'fake' => $app->bound(FakeAiClient::class)

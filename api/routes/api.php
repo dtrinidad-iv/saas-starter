@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectSummaryController;
+use App\Http\Controllers\Api\ProjectWritingHelpController;
 use App\Http\Controllers\Api\RoleController;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +50,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/ai-budget', [AiUsageController::class, 'updateBudget'])->middleware('throttle:20,1');
 
         Route::apiResource('projects', ProjectController::class)->whereNumber('project');
+
+        // Streamed (text/event-stream); see AiEventStream.
+        Route::post('/projects/writing-help', [ProjectWritingHelpController::class, 'store'])->middleware('throttle:ai');
+        Route::post('/projects/{project}/writing-help', [ProjectWritingHelpController::class, 'update'])
+            ->whereNumber('project')->middleware('throttle:ai');
 
         Route::prefix('projects/{project}')->whereNumber(['project', 'summary'])->scopeBindings()->group(function () {
             Route::get('/summary', [ProjectSummaryController::class, 'show']);

@@ -39,6 +39,16 @@ class ProjectPolicy
         );
     }
 
+    /**
+     * AI writing help for the project form: for a new project (no $project) it follows
+     * create, for an existing one update. It's an AI call, so it also needs ai.use.
+     */
+    public function writeWithAi(User $user, ?Project $project = null): bool
+    {
+        return $this->currentOrganization->can(Permission::AiUse)
+            && ($project === null ? $this->create($user) : $this->update($user, $project));
+    }
+
     public function delete(User $user, Project $project): bool
     {
         return $this->view($user, $project) && $this->currentOrganization->can(Permission::ProjectsDelete);

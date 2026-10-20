@@ -20,6 +20,12 @@ return [
     // which in turn stays below the queue's retry_after (90s by default).
     'timeout' => (int) env('AI_TIMEOUT', 60),
 
+    // Seconds for a streamed answer (writing help, chat), from the request to the last token.
+    'stream_timeout' => (int) env('AI_STREAM_TIMEOUT', 120),
+
+    // Streamed answers running at once per organization; each holds a PHP worker.
+    'concurrent_streams' => 2,
+
     'max_tokens' => 4000,
 
     /*

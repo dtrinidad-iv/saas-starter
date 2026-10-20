@@ -8,6 +8,7 @@ use App\Ai\Contracts\AiClient;
 use App\Ai\Exceptions\AiRequestFailed;
 use App\Ai\Exceptions\AiUnavailable;
 use App\Models\AiUsage;
+use Closure;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -28,14 +29,24 @@ class RecordingAiClient implements AiClient
 
     public function generate(AiRequest $request): AiResponse
     {
-        try {
-            $response = $this->inner->generate($request);
-        } catch (AiRequestFailed $e) {
-            $this->record($request, $e->response, 'failed', $e->errorCode);
+        return $this->recorded($request, fn () => $this->inner->generate($request));
+    }
 
-            throw $e;
-        } catch (AiUnavailable $e) {
-            $this->record($request, null, 'failed', $e->errorCode);
+    // A stopped or broken-off stream is recorded with the tokens counted so far.
+    public function stream(AiRequest $request, Closure $onText): AiResponse
+    {
+        return $this->recorded($request, fn () => $this->inner->stream($request, $onText));
+    }
+
+    /**
+     * @param  Closure(): AiResponse  $call
+     */
+    private function recorded(AiRequest $request, Closure $call): AiResponse
+    {
+        try {
+            $response = $call();
+        } catch (AiRequestFailed|AiUnavailable $e) {
+            $this->record($request, $e->response, 'failed', $e->errorCode);
 
             throw $e;
         } catch (Throwable $e) {
@@ -44,7 +55,8 @@ class RecordingAiClient implements AiClient
             throw $e;
         }
 
-        $this->record($request, $response, 'succeeded', null);
+        // A stream the caller stopped still succeeded; the code tells it apart on the usage page.
+        $this->record($request, $response, 'succeeded', $response->stopReason === 'aborted' ? 'aborted' : null);
 
         return $response;
     }

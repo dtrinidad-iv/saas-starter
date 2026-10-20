@@ -6,6 +6,7 @@ use App\Ai\AiBudget;
 use App\Ai\AiRequest;
 use App\Ai\AiResponse;
 use App\Ai\Contracts\AiClient;
+use Closure;
 
 /**
  * Refuses calls once the current organization's monthly budget is used up
@@ -23,5 +24,12 @@ class BudgetedAiClient implements AiClient
         $this->budget->ensureAvailable();
 
         return $this->inner->generate($request);
+    }
+
+    public function stream(AiRequest $request, Closure $onText): AiResponse
+    {
+        $this->budget->ensureAvailable();
+
+        return $this->inner->stream($request, $onText);
     }
 }

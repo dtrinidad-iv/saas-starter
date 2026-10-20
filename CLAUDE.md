@@ -6,7 +6,7 @@
 - Local: macOS, Postgres running locally, API on :8000, Nuxt on :3000
 
 ## Commands
-- API: `cd api && php artisan serve`, `php artisan migrate`, `php artisan test`
+- API: `cd api && PHP_CLI_SERVER_WORKERS=4 php artisan serve --no-reload` (workers so a streamed AI answer doesn't block other requests), `php artisan migrate`, `php artisan test`
 - Queue worker: `php artisan queue:work`
 - Web: `cd web && npm run dev`, `npm run build`, `npm run lint`
 - Always run `php artisan test` (api) and `npm run build` (web) before saying a task is done.
@@ -28,7 +28,7 @@
 
 ## Frontend conventions
 - Use `<script setup lang="ts">` and Nuxt UI components before writing custom ones.
-- API calls go through one composable (`useApi`) that attaches the auth token.
+- API calls go through `useApi` (JSON) or `useApiStream` (server-sent events), both in `composables/useApi.ts`; they attach the auth token and handle a 401.
 - Current user and current organization live in Pinia stores.
 - The main layout is a collapsible sidebar (`UDashboardSidebar`): app name at the top, then the org switcher and navigation; the footer has the account menu (appearance, log out) and app version. The top bar (`UDashboardNavbar`) has the sidebar toggle/collapse button and the account menu on the right.
 
@@ -36,7 +36,7 @@
 - All AI calls happen in Laravel. Never expose provider keys to Nuxt.
 - Code against the `AiClient` interface (`app/Ai`). Provider and model come from `config/ai.php` and `.env`. The container wraps the provider in `RecordingAiClient`, so `ai_usage` is written for you, and in `BudgetedAiClient`, which refuses calls once the organization's monthly budget is used up (`AiBudgetExceeded`: 402 in requests, a failed result in jobs). Check `AiBudget` before starting AI work so nothing is created that can't run.
 - Slow work (summaries, bulk generation) runs as queued jobs with retries, backoff, and timeouts. Tenant work extends `App\Jobs\OrganizationJob` (sets the current organization); AI jobs add `RateLimited('ai')`.
-- Interactive chat uses SSE streaming. Everything else is queued.
+- Interactive AI (chat, writing help) streams as SSE: `AiClient::stream()` returned as `App\Http\Responses\AiEventStream` (events `delta`, `done`, `error`). Its status is always 200 once it starts, so check the policy, validation and `AiBudget`, and take an `AiStreamSlots` slot (concurrent streams per organization), before returning it. Background work is queued.
 - Record every call in `ai_usage` (organization_id, user_id, feature, model, tokens in/out, cost).
 - Rate limit AI endpoints per organization. User-triggered AI needs the `ai.use` permission in its policy.
 - Prompts live in dedicated classes or files under `app/Ai/Prompts`, not inline strings.
