@@ -16,10 +16,13 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $currentOrganization = $this->activeOrganization();
+
         return [
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'current_organization' => $currentOrganization ? new OrganizationResource($currentOrganization) : null,
             'created_at' => $this->created_at,
         ];
     }

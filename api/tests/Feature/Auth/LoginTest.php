@@ -16,7 +16,7 @@ it('logs in with valid credentials and returns a working token', function () {
     ]);
 
     $response->assertOk()
-        ->assertJsonStructure(['user' => ['id', 'name', 'email', 'created_at'], 'token'])
+        ->assertJsonStructure(['user' => ['id', 'name', 'email', 'current_organization', 'created_at'], 'token'])
         ->assertJsonPath('user.id', $this->user->id)
         ->assertJsonMissingPath('user.password');
 

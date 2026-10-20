@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\OrganizationRole;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
@@ -17,7 +18,7 @@ it('registers a user and returns a working token', function () {
     $response = $this->postJson('/api/register', validRegistration());
 
     $response->assertCreated()
-        ->assertJsonStructure(['user' => ['id', 'name', 'email', 'created_at'], 'token'])
+        ->assertJsonStructure(['user' => ['id', 'name', 'email', 'current_organization', 'created_at'], 'token'])
         ->assertJsonPath('user.email', 'ada@example.com')
         ->assertJsonMissingPath('user.password');
 
@@ -28,6 +29,20 @@ it('registers a user and returns a working token', function () {
         ->getJson('/api/me')
         ->assertOk()
         ->assertJsonPath('data.id', $user->id);
+});
+
+it('creates a personal organization owned by the new user and makes it current', function () {
+    $response = $this->postJson('/api/register', validRegistration())->assertCreated();
+
+    $user = User::where('email', 'ada@example.com')->firstOrFail();
+    $organization = $user->organizations()->sole();
+
+    expect($organization->name)->toBe("Ada Lovelace's organization")
+        ->and($organization->membership->role)->toBe(OrganizationRole::Owner)
+        ->and($user->current_organization_id)->toBe($organization->id);
+
+    $response->assertJsonPath('user.current_organization.id', $organization->id)
+        ->assertJsonPath('user.current_organization.role', 'owner');
 });
 
 it('requires name, email and password', function () {

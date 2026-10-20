@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\OrganizationRole;
+use App\Models\Organization;
 use App\Models\User;
 
 it('returns the authenticated user', function () {
@@ -14,9 +16,36 @@ it('returns the authenticated user', function () {
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'current_organization' => null,
                 'created_at' => $user->created_at->toJSON(),
             ],
         ]);
+});
+
+it('includes the current organization and the user role in it', function () {
+    $user = User::factory()->create();
+    $organization = Organization::factory()->withMember($user, OrganizationRole::Admin)->create(['name' => 'Acme']);
+    $user->forceFill(['current_organization_id' => $organization->id])->save();
+
+    $this->withToken($user->createToken('api')->plainTextToken)
+        ->getJson('/api/me')
+        ->assertOk()
+        ->assertJsonPath('data.current_organization.id', $organization->id)
+        ->assertJsonPath('data.current_organization.name', 'Acme')
+        ->assertJsonPath('data.current_organization.role', 'admin');
+});
+
+it('reports no current organization after the user was removed from it', function () {
+    $user = User::factory()->create();
+    $organization = Organization::factory()->withMember($user)->create();
+    $user->forceFill(['current_organization_id' => $organization->id])->save();
+
+    $organization->members()->detach($user);
+
+    $this->withToken($user->createToken('api')->plainTextToken)
+        ->getJson('/api/me')
+        ->assertOk()
+        ->assertJsonPath('data.current_organization', null);
 });
 
 it('rejects requests without a token', function () {
