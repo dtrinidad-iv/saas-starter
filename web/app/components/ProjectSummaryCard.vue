@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { ProjectSummary } from '~/types/api'
+import type { FormError } from '@nuxt/ui'
+import type { ProjectSummary, ProjectSummaryEdits } from '~/types/api'
 
 // canGenerate: the project's can.update, needed before any summary exists. The API
 // also requires ai.use (ProjectSummaryPolicy::create), checked here too.
@@ -79,20 +80,38 @@ async function generate() {
   }
 }
 
-async function review(decision: 'approve' | 'reject') {
+// Editing a draft before approving it.
+const editing = ref(false)
+const editor = useTemplateRef<{ setErrors: (errors: FormError[]) => void }>('editor')
+// A different summary (regenerated, or replaced by someone else) ends editing.
+watch(() => summary.value?.id, () => {
+  editing.value = false
+})
+
+async function review(decision: 'approve' | 'reject', edits?: ProjectSummaryEdits) {
   if (!summary.value) {
     return
   }
   busy.value = decision
   try {
-    await api(`/api/projects/${props.projectId}/summaries/${summary.value.id}/${decision}`, { method: 'POST' })
+    await api(`/api/projects/${props.projectId}/summaries/${summary.value.id}/${decision}`, { method: 'POST', body: edits })
+    editing.value = false
     await refresh()
     toast.add({ title: decision === 'approve' ? 'Summary approved' : 'Summary rejected', color: 'success' })
   }
   catch (error) {
+    const fieldErrors = toFormErrors(error)
+    if (edits && fieldErrors.length) {
+      editor.value?.setErrors(fieldErrors)
+      return
+    }
     toast.add({ title: 'Could not update the summary', description: errorMessage(error), color: 'error' })
-    // Someone else may have reviewed or replaced it (409): show the current state.
-    await refresh()
+    // Someone else reviewed or replaced it (409, 404): show the current state. Other
+    // errors (network, 429) keep the editor open so the edits aren't lost.
+    if (isFetchError(error) && (error.statusCode === 409 || error.statusCode === 404)) {
+      editing.value = false
+      await refresh()
+    }
   }
   finally {
     busy.value = null
@@ -113,10 +132,11 @@ const badge = computed(() => {
 const showsText = computed(() => summary.value?.status === 'draft' || summary.value?.status === 'approved')
 // Shown under a newer summary that isn't approved (yet).
 const previousApproved = computed(() => approved.value && approved.value.id !== summary.value?.id ? approved.value : null)
-// Regenerate hides while a draft waits for review, and while generating (unless it's taking too long).
+// Regenerate hides while a draft waits for review (unless the project changed since), and
+// while generating (unless it's taking too long).
 const showGenerate = computed(() => !loadError.value
   && (summary.value ? summary.value.can.regenerate : props.canGenerate && can('ai.use'))
-  && summary.value?.status !== 'draft'
+  && (summary.value?.status !== 'draft' || (summary.value.stale && !editing.value))
   && (summary.value?.status !== 'pending' || stillWorking.value))
 </script>
 
@@ -177,6 +197,15 @@ const showGenerate = computed(() => !loadError.value
         <USkeleton class="h-4 w-2/3" />
       </template>
 
+      <ProjectSummaryEditor
+        v-else-if="editing && summary.status === 'draft'"
+        ref="editor"
+        :initial="{ summary: summary.summary ?? '', key_points: summary.key_points }"
+        :loading="busy === 'approve'"
+        @submit="review('approve', $event)"
+        @cancel="editing = false"
+      />
+
       <template v-else-if="showsText">
         <p class="whitespace-pre-line text-sm">
           {{ summary.summary }}
@@ -192,6 +221,16 @@ const showGenerate = computed(() => !loadError.value
             {{ point }}
           </li>
         </ul>
+        <p
+          v-if="summary.stale"
+          class="flex items-center gap-1 text-xs text-warning"
+        >
+          <UIcon
+            name="i-lucide-triangle-alert"
+            class="size-3.5 shrink-0"
+          />
+          The project changed since this summary was written.
+        </p>
         <p
           v-if="summary.status === 'approved'"
           class="text-xs text-muted"
@@ -244,15 +283,26 @@ const showGenerate = computed(() => !loadError.value
         </ul>
         <p class="text-xs text-muted">
           Approved by {{ previousApproved.reviewed_by?.name ?? 'a former member' }}
+          <template v-if="previousApproved.stale">
+            · The project changed since it was written.
+          </template>
         </p>
       </div>
     </div>
 
     <template
-      v-if="summary?.status === 'draft' && summary.can.review"
+      v-if="summary?.status === 'draft' && summary.can.review && !editing"
       #footer
     >
       <div class="flex justify-end gap-2">
+        <UButton
+          label="Edit"
+          icon="i-lucide-pencil"
+          color="neutral"
+          variant="outline"
+          :disabled="busy !== null"
+          @click="editing = true"
+        />
         <UButton
           label="Reject"
           color="neutral"

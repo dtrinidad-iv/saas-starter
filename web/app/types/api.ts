@@ -135,6 +135,8 @@ export interface ProjectSummary {
   summary: string | null
   key_points: string[]
   model: string | null
+  /** The project's name or description changed since this summary was written. */
+  stale: boolean
   /** A short, user-facing reason, only when status is "failed". */
   error: string | null
   requested_by: { id: number, name: string } | null
@@ -144,6 +146,12 @@ export interface ProjectSummary {
   updated_at: string
   /** What the current user may do, decided by the API. */
   can: { review: boolean, regenerate: boolean }
+}
+
+/** A reviewer's edits, sent when approving a draft. */
+export interface ProjectSummaryEdits {
+  summary: string
+  key_points: string[]
 }
 
 /** An entry of GET /api/audit-log/actions (mirrors App\Enums\AuditAction). */
