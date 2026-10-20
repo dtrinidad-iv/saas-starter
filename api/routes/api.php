@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\JoinController;
@@ -39,6 +40,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/permissions', [PermissionController::class, 'index']);
         Route::apiResource('roles', RoleController::class)->except('show')->whereNumber('role');
+
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+        Route::get('/audit-log/actions', [AuditLogController::class, 'actions']);
 
         Route::apiResource('projects', ProjectController::class)->whereNumber('project');
 

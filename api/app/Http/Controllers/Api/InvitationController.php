@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Organizations\InviteMember;
+use App\Actions\Organizations\RevokeInvitation;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organizations\StoreInvitationRequest;
 use App\Http\Resources\InvitationResource;
@@ -39,11 +40,11 @@ class InvitationController extends Controller
         return (new InvitationResource($invitation))->response()->setStatusCode(201);
     }
 
-    public function destroy(OrganizationInvitation $invitation): Response
+    public function destroy(OrganizationInvitation $invitation, RevokeInvitation $action): Response
     {
         Gate::authorize('delete', $invitation);
 
-        $invitation->delete();
+        $action->handle($invitation);
 
         return response()->noContent();
     }

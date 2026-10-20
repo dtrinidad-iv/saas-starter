@@ -3,6 +3,7 @@
 namespace App\Actions\Projects;
 
 use App\Models\Project;
+use Illuminate\Support\Facades\DB;
 
 class UpdateProject
 {
@@ -11,7 +12,8 @@ class UpdateProject
      */
     public function handle(Project $project, array $data): Project
     {
-        $project->update($data);
+        // One transaction with its audit entry (Auditable).
+        DB::transaction(fn () => $project->update($data));
 
         return $project->load('creator');
     }

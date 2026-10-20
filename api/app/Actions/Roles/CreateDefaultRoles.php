@@ -12,13 +12,14 @@ class CreateDefaultRoles
     public function __construct(private readonly CurrentOrganization $currentOrganization) {}
 
     /**
-     * Give a new organization its Owner, Admin and Member roles.
+     * Give a new organization its Owner, Admin and Member roles. Not audited one by
+     * one: creating the organization is.
      *
      * @return array<string, Role> keyed by DefaultRole value
      */
     public function handle(Organization $organization): array
     {
-        return $this->currentOrganization->runAs($organization, function () {
+        return $this->currentOrganization->runAs($organization, fn () => Role::withoutAuditing(function () {
             $roles = [];
 
             foreach (DefaultRole::cases() as $default) {
@@ -30,6 +31,6 @@ class CreateDefaultRoles
             }
 
             return $roles;
-        });
+        }));
     }
 }

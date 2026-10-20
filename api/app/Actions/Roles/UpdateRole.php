@@ -6,6 +6,7 @@ use App\Enums\Permission;
 use App\Models\Role;
 use App\Support\CurrentOrganization;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class UpdateRole
@@ -18,7 +19,8 @@ class UpdateRole
     public function handle(Role $role, string $name, array $permissions): Role
     {
         try {
-            $role->update(['name' => $name, 'permissions' => Permission::sorted($permissions)]);
+            // One transaction with its audit entry (Auditable).
+            DB::transaction(fn () => $role->update(['name' => $name, 'permissions' => Permission::sorted($permissions)]));
         } catch (UniqueConstraintViolationException) {
             // Another request took the name after RoleRequest checked it.
             throw ValidationException::withMessages(['name' => 'There is already a role with this name.']);

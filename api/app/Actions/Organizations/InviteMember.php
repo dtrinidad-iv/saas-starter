@@ -2,6 +2,8 @@
 
 namespace App\Actions\Organizations;
 
+use App\Actions\Audit\RecordAudit;
+use App\Enums\AuditAction;
 use App\Mail\OrganizationInvitationMail;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
@@ -15,7 +17,10 @@ use Illuminate\Validation\ValidationException;
 
 class InviteMember
 {
-    public function __construct(private readonly CurrentOrganization $currentOrganization) {}
+    public function __construct(
+        private readonly CurrentOrganization $currentOrganization,
+        private readonly RecordAudit $recordAudit,
+    ) {}
 
     /**
      * Invite an email address to the organization and queue the invitation email.
@@ -50,13 +55,21 @@ class InviteMember
 
             OrganizationInvitation::query()->whereKey($existing->modelKeys())->delete();
 
-            return OrganizationInvitation::create([
+            $invitation = OrganizationInvitation::create([
                 'email' => $email,
                 'role_id' => $role->id,
                 'token_hash' => OrganizationInvitation::hashToken($token),
                 'invited_by' => $inviter->id,
                 'expires_at' => now()->addDays(OrganizationInvitation::LIFETIME_DAYS),
             ]);
+
+            $this->recordAudit->handle(
+                AuditAction::MemberInvited,
+                ['type' => 'invitation', 'id' => $invitation->id, 'label' => $email],
+                metadata: ['role' => $role->name],
+            );
+
+            return $invitation;
         });
 
         Mail::to($email)->queue(new OrganizationInvitationMail(

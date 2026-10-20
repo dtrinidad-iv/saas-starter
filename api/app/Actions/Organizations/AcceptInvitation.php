@@ -2,6 +2,8 @@
 
 namespace App\Actions\Organizations;
 
+use App\Actions\Audit\RecordAudit;
+use App\Enums\AuditAction;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\User;
@@ -12,7 +14,10 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class AcceptInvitation
 {
-    public function __construct(private readonly SwitchOrganization $switchOrganization) {}
+    public function __construct(
+        private readonly SwitchOrganization $switchOrganization,
+        private readonly RecordAudit $recordAudit,
+    ) {}
 
     /**
      * Join the invitation's organization with its role and switch to it.
@@ -32,6 +37,15 @@ class AcceptInvitation
             // Already a member (e.g. added another way): keep the existing role.
             if (! $user->isMemberOf($organization)) {
                 $organization->members()->attach($user, ['role_id' => $invitation->role_id]);
+
+                // Not acting in the organization yet: write to the invitation's organization.
+                $this->recordAudit->handle(
+                    AuditAction::MemberJoined,
+                    ['type' => 'member', 'id' => $user->id, 'label' => $user->name],
+                    metadata: ['role' => $invitation->role?->name, 'invitation_id' => $invitation->id],
+                    organization: $organization,
+                    actor: $user,
+                );
             }
 
             $invitation->forceFill(['accepted_at' => now()])->save();

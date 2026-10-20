@@ -2,6 +2,8 @@
 
 namespace App\Actions\ProjectSummaries;
 
+use App\Actions\Audit\RecordAudit;
+use App\Enums\AuditAction;
 use App\Enums\ProjectSummaryStatus;
 use App\Jobs\GenerateProjectSummary;
 use App\Models\Project;
@@ -16,6 +18,8 @@ class RequestProjectSummary
      * longer than the job's worst case of retries, backoff and rate-limit releases.
      */
     public const STALE_AFTER_MINUTES = 15;
+
+    public function __construct(private readonly RecordAudit $recordAudit) {}
 
     /**
      * Queue a new summary for a project in the current organization, or return
@@ -46,6 +50,13 @@ class RequestProjectSummary
                 'status' => ProjectSummaryStatus::Pending,
                 'requested_by' => $requester?->id,
             ])->save();
+
+            $this->recordAudit->handle(
+                AuditAction::SummaryRequested,
+                ['type' => 'project', 'id' => $project->id, 'label' => $project->name],
+                metadata: ['summary_id' => $summary->id],
+                actor: $requester,
+            );
 
             return [$summary, true];
         });

@@ -4,6 +4,7 @@ namespace App\Actions\Organizations\Concerns;
 
 use App\Models\Membership;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
@@ -13,6 +14,20 @@ trait EnsuresAnOwnerRemains
      * Fail if $member is the organization's only owner. Call inside a transaction:
      * the owner rows are locked so two owners can't demote each other at once.
      */
+    /**
+     * The member's role, with their membership row locked. Call inside a transaction,
+     * after ensureAnotherOwner().
+     */
+    protected function lockedRole(Organization $organization, User $member): Role
+    {
+        return Membership::query()
+            ->where('organization_id', $organization->id)
+            ->where('user_id', $member->id)
+            ->lockForUpdate()
+            ->firstOrFail()
+            ->role;
+    }
+
     protected function ensureAnotherOwner(Organization $organization, User $member, string $errorKey): void
     {
         // Lock every owner row, the member's own included, in a fixed order: two owners

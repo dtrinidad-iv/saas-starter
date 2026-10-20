@@ -17,6 +17,7 @@ enum Permission: string
     case MembersChangeRole = 'members.change_role';
     case MembersRemove = 'members.remove';
     case RolesManage = 'roles.manage';
+    case AuditLogView = 'audit_log.view';
 
     /**
      * Unique and in catalogue order, so stored roles compare and display consistently.
@@ -38,6 +39,7 @@ enum Permission: string
             self::ProjectsUpdateAny, self::ProjectsDelete => 'Projects',
             self::MembersInvite, self::MembersChangeRole, self::MembersRemove => 'Members',
             self::RolesManage => 'Roles',
+            self::AuditLogView => 'Organization',
         };
     }
 
@@ -53,6 +55,7 @@ enum Permission: string
             self::MembersChangeRole => 'Change members\' roles',
             self::MembersRemove => 'Remove members',
             self::RolesManage => 'Create, edit and delete roles',
+            self::AuditLogView => 'View the audit log',
         };
     }
 }

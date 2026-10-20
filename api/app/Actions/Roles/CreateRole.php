@@ -5,6 +5,7 @@ namespace App\Actions\Roles;
 use App\Enums\Permission;
 use App\Models\Role;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CreateRole
@@ -17,7 +18,8 @@ class CreateRole
     public function handle(string $name, array $permissions): Role
     {
         try {
-            $role = Role::create(['name' => $name, 'permissions' => Permission::sorted($permissions)]);
+            // One transaction with its audit entry (Auditable).
+            $role = DB::transaction(fn () => Role::create(['name' => $name, 'permissions' => Permission::sorted($permissions)]));
         } catch (UniqueConstraintViolationException) {
             // Another request took the name after RoleRequest checked it.
             throw ValidationException::withMessages(['name' => 'There is already a role with this name.']);

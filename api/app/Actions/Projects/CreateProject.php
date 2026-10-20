@@ -5,6 +5,7 @@ namespace App\Actions\Projects;
 use App\Events\ProjectCreated;
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class CreateProject
 {
@@ -15,9 +16,14 @@ class CreateProject
      */
     public function handle(User $creator, array $data): Project
     {
-        $project = new Project($data);
-        $project->created_by = $creator->id;
-        $project->save();
+        // One transaction with its audit entry (Auditable).
+        $project = DB::transaction(function () use ($creator, $data) {
+            $project = new Project($data);
+            $project->created_by = $creator->id;
+            $project->save();
+
+            return $project;
+        });
 
         ProjectCreated::dispatch($project);
 

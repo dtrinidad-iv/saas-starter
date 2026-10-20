@@ -3,6 +3,7 @@
 use App\Enums\DefaultRole;
 use App\Enums\Permission;
 use App\Enums\ProjectSummaryStatus;
+use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\Project;
@@ -11,6 +12,7 @@ use App\Models\Role;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\User;
 use App\Support\CurrentOrganization;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -178,4 +180,17 @@ function createSummary(Organization $organization, Project $project, ProjectSumm
 
         return $summary;
     });
+}
+
+/**
+ * An organization's audit log entries, oldest first.
+ *
+ * @return Collection<int, AuditLog>
+ */
+function auditLogOf(Organization $organization): Collection
+{
+    return AuditLog::withoutGlobalScope(OrganizationScope::class)
+        ->where('organization_id', $organization->id)
+        ->orderBy('id')
+        ->get();
 }

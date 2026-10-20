@@ -45,6 +45,13 @@
 - Treat all user content as untrusted (prompt injection). Never include another organization's data in a prompt.
 - In tests, fake the AI client. Never make real API calls in tests. `TestCase` binds `FakeAiClient` as `$this->ai` (push responses, `assertSent`) and blocks stray HTTP. `AI_PROVIDER=fake` does the same for local and e2e runs.
 
+## Audit log conventions
+- Tenant-owned models that users create, edit or delete use the `Auditable` trait (diffs of changed columns; keys, timestamps and `$hidden` are never logged; add others to `$auditExclude`).
+- Other notable actions (members, invitations, AI reviews) call `App\Actions\Audit\RecordAudit` inside their transaction. Pass `organization:` when not acting in it as the current organization (joining, creating).
+- Every new event is an `App\Enums\AuditAction` case with a label. Never log secrets, tokens or passwords.
+- Entries about projects use subject type `project` and keep project content out of `metadata`: `AuditLogResource` hides their label and changes from viewers without `projects.view`.
+- Entries are append-only; `model:prune` (scheduled daily) deletes them after `AUDIT_RETENTION_DAYS`.
+
 ## Automation conventions
 - Recurring work uses the Laravel Scheduler.
 - Domain events (e.g. `ProjectCreated`) dispatch jobs. Keep listeners small.

@@ -2,7 +2,9 @@
 
 namespace App\Actions\Organizations;
 
+use App\Actions\Audit\RecordAudit;
 use App\Actions\Organizations\Concerns\EnsuresAnOwnerRemains;
+use App\Enums\AuditAction;
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\CurrentOrganization;
@@ -12,7 +14,10 @@ class RemoveMember
 {
     use EnsuresAnOwnerRemains;
 
-    public function __construct(private readonly CurrentOrganization $currentOrganization) {}
+    public function __construct(
+        private readonly CurrentOrganization $currentOrganization,
+        private readonly RecordAudit $recordAudit,
+    ) {}
 
     /**
      * Remove a member (or let them leave). If this was their current organization,
@@ -27,7 +32,18 @@ class RemoveMember
                 $this->ensureAnotherOwner($organization, $member, 'member');
             }
 
+            // Re-read under a lock (after the owner rows, in the same order as
+            // EnsuresAnOwnerRemains), so concurrent changes record the right old role.
+            $current = $this->lockedRole($organization, $member);
+
             $organization->members()->detach($member->id);
+
+            $this->recordAudit->handle(
+                AuditAction::MemberRemoved,
+                ['type' => 'member', 'id' => $member->id, 'label' => $member->name],
+                metadata: ['role' => $current->name],
+                organization: $organization,
+            );
 
             if ($member->current_organization_id === $organization->id) {
                 $member->forceFill([

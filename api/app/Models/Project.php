@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ProjectSummaryStatus;
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToOrganization;
 use Database\Factories\ProjectFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -23,7 +24,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Project extends Model
 {
     /** @use HasFactory<ProjectFactory> */
-    use BelongsToOrganization, HasFactory;
+    use Auditable, BelongsToOrganization, HasFactory;
+
+    /** The creator is the actor of project.created already. */
+    protected array $auditExclude = ['created_by'];
 
     /**
      * @return BelongsTo<User, $this>

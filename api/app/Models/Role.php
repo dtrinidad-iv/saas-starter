@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Permission;
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
@@ -22,7 +23,7 @@ use Illuminate\Support\Collection;
 #[Fillable(['name', 'permissions'])]
 class Role extends Model
 {
-    use BelongsToOrganization;
+    use Auditable, BelongsToOrganization;
 
     protected $attributes = [
         'is_owner' => false,

@@ -2,6 +2,8 @@
 
 namespace App\Actions\ProjectSummaries;
 
+use App\Actions\Audit\RecordAudit;
+use App\Enums\AuditAction;
 use App\Enums\ProjectSummaryStatus;
 use App\Models\Project;
 use App\Models\ProjectSummary;
@@ -10,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 class ReviewProjectSummary
 {
+    public function __construct(private readonly RecordAudit $recordAudit) {}
+
     /**
      * Approve or reject a draft. Approving only marks it approved (and retires the
      * previously approved one); it never changes the project itself.
@@ -18,7 +22,7 @@ class ReviewProjectSummary
     {
         DB::transaction(function () use ($summary, $reviewer, $approve) {
             // Lock the project first so reviews of its summaries run one at a time.
-            Project::query()->whereKey($summary->project_id)->lockForUpdate()->first();
+            $project = Project::query()->whereKey($summary->project_id)->lockForUpdate()->firstOrFail();
             $locked = ProjectSummary::query()->whereKey($summary->id)->lockForUpdate()->firstOrFail();
 
             abort_unless($locked->status === ProjectSummaryStatus::Draft, 409, 'Only a draft summary can be reviewed.');
@@ -35,6 +39,13 @@ class ReviewProjectSummary
                 'reviewed_by' => $reviewer->id,
                 'reviewed_at' => now(),
             ])->save();
+
+            $this->recordAudit->handle(
+                $approve ? AuditAction::SummaryApproved : AuditAction::SummaryRejected,
+                ['type' => 'project', 'id' => $project->id, 'label' => $project->name],
+                metadata: ['summary_id' => $locked->id],
+                actor: $reviewer,
+            );
         });
 
         return $summary->fresh(['requester', 'reviewer']);
