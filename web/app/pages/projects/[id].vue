@@ -124,6 +124,7 @@ async function destroy() {
         <ProjectForm
           ref="editForm"
           :initial="project"
+          :project-id="project.id"
           submit-label="Save"
           focus-on-mount
           :loading="saving"

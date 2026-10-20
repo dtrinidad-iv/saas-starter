@@ -387,6 +387,7 @@ async function destroy() {
           :key="editing.id"
           ref="editForm"
           :initial="editing"
+          :project-id="editing.id"
           submit-label="Save"
           :loading="saving"
           @submit="save"

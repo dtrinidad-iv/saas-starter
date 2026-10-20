@@ -2,8 +2,10 @@
 import type { Form, FormError, FormSubmitEvent } from '@nuxt/ui'
 import type { ProjectPayload } from '~/types/api'
 
+// projectId: set when editing, for AI writing help on that project.
 const props = defineProps<{
   initial?: Partial<ProjectPayload>
+  projectId?: number
   submitLabel: string
   loading?: boolean
   focusOnMount?: boolean
@@ -16,6 +18,8 @@ const emit = defineEmits<{
 
 // In the form, description is always a string; empty becomes null on submit.
 interface FormState { name: string, description: string }
+
+const { can } = useOrganizationPermissions()
 
 const form = useTemplateRef<Form<FormState>>('form')
 const state = reactive<FormState>({
@@ -89,6 +93,15 @@ onMounted(() => {
         class="w-full"
       />
     </UFormField>
+
+    <!-- The API also checks create or edit permission; the parent only shows this form when allowed. -->
+    <ProjectWritingHelp
+      v-if="can('ai.use')"
+      :name="state.name"
+      :description="state.description"
+      :project-id="projectId"
+      @accept="text => state.description = text"
+    />
 
     <div class="flex justify-end gap-2">
       <UButton
