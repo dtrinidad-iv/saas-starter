@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Enums;
+
+/**
+ * What a role may do in its organization. Roles store these values; the owner
+ * role has all of them implicitly (see Role::grants()).
+ */
+enum Permission: string
+{
+    case ProjectsView = 'projects.view';
+    case ProjectsCreate = 'projects.create';
+    case ProjectsUpdateOwn = 'projects.update_own';
+    case ProjectsUpdateAny = 'projects.update_any';
+    case ProjectsDelete = 'projects.delete';
+    case MembersInvite = 'members.invite';
+    case MembersChangeRole = 'members.change_role';
+    case MembersRemove = 'members.remove';
+    case RolesManage = 'roles.manage';
+
+    /**
+     * Unique and in catalogue order, so stored roles compare and display consistently.
+     *
+     * @param  iterable<self>  $permissions
+     * @return list<self>
+     */
+    public static function sorted(iterable $permissions): array
+    {
+        $permissions = collect($permissions);
+
+        return array_values(array_filter(self::cases(), fn (self $permission) => $permissions->contains($permission)));
+    }
+
+    public function group(): string
+    {
+        return match ($this) {
+            self::ProjectsView, self::ProjectsCreate, self::ProjectsUpdateOwn,
+            self::ProjectsUpdateAny, self::ProjectsDelete => 'Projects',
+            self::MembersInvite, self::MembersChangeRole, self::MembersRemove => 'Members',
+            self::RolesManage => 'Roles',
+        };
+    }
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::ProjectsView => 'View projects',
+            self::ProjectsCreate => 'Create projects',
+            self::ProjectsUpdateOwn => 'Edit projects they created',
+            self::ProjectsUpdateAny => 'Edit any project',
+            self::ProjectsDelete => 'Delete projects',
+            self::MembersInvite => 'Invite people and revoke invitations',
+            self::MembersChangeRole => 'Change members\' roles',
+            self::MembersRemove => 'Remove members',
+            self::RolesManage => 'Create, edit and delete roles',
+        };
+    }
+}

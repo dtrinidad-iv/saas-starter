@@ -7,6 +7,7 @@ use App\Actions\Organizations\SwitchOrganization;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organizations\StoreOrganizationRequest;
 use App\Http\Resources\OrganizationResource;
+use App\Models\Membership;
 use App\Support\CurrentOrganization;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ class OrganizationController extends Controller
     public function index(Request $request, CurrentOrganization $currentOrganization): AnonymousResourceCollection
     {
         $organizations = $request->user()->organizations()->orderBy('name')->get();
+        Membership::loadRoles($organizations);
 
         return OrganizationResource::collection($organizations)
             ->additional(['meta' => ['current_organization_id' => $currentOrganization->id()]]);

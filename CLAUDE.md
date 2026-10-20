@@ -12,7 +12,8 @@
 - Always run `php artisan test` (api) and `npm run build` (web) before saying a task is done.
 
 ## Multi-organization model
-- Users belong to many organizations via `organization_user` pivot with `role` (owner, admin, member).
+- Users belong to many organizations via `organization_user` pivot with `role_id`. Roles are per organization (`roles` table, tenant-owned) with permissions from `App\Enums\Permission`. New organizations get Owner, Admin and Member (`App\Enums\DefaultRole`); Owner is built in (`is_owner`, every permission, can't be edited or deleted).
+- Policies check permissions (`CurrentOrganization::can()`), never role names. A non-owner only grants, assigns, revokes or changes roles they cover (`Role::isSubsetOf` / `isStrictSubsetOf`). To add a permission, add the enum case and decide whether `DefaultRole` grants it; existing organizations' roles only get it through a new migration.
 - No tenant in the URL or subdomain. The active organization is stored server-side (`users.current_organization_id`).
 - Switching: `POST /api/organizations/{id}/switch`. Verify membership on the server every time.
 - Tenant-owned models use the `BelongsToOrganization` trait (global scope + auto-set `organization_id` on create).

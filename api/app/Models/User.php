@@ -44,7 +44,7 @@ class User extends Authenticatable
         return $this->belongsToMany(Organization::class)
             ->using(Membership::class)
             ->as('membership')
-            ->withPivot('role')
+            ->withPivot('role_id')
             ->withTimestamps();
     }
 

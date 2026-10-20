@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\Permission;
 use App\Models\Organization;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -19,8 +20,10 @@ class OrganizationResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            // The requesting user's role; present when loaded through User::organizations().
-            'role' => $this->whenPivotLoadedAs('membership', 'organization_user', fn () => $this->membership->role),
+            // The requesting user's role and what it grants; present when loaded through User::organizations().
+            'role' => $this->whenPivotLoadedAs('membership', 'organization_user', fn () => RoleResource::summary($this->membership->role)),
+            'permissions' => $this->whenPivotLoadedAs('membership', 'organization_user', fn () => $this->membership->role->grants()
+                ->map(fn (Permission $permission) => $permission->value)->values()),
             'created_at' => $this->created_at,
         ];
     }

@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Organization;
 use App\Models\User;
 
@@ -24,7 +24,7 @@ it('returns the authenticated user', function () {
 
 it('includes the current organization and the user role in it', function () {
     $user = User::factory()->create();
-    $organization = Organization::factory()->withMember($user, OrganizationRole::Admin)->create(['name' => 'Acme']);
+    $organization = Organization::factory()->withMember($user, DefaultRole::Admin)->create(['name' => 'Acme']);
     $user->forceFill(['current_organization_id' => $organization->id])->save();
 
     $this->withToken($user->createToken('api')->plainTextToken)
@@ -32,7 +32,7 @@ it('includes the current organization and the user role in it', function () {
         ->assertOk()
         ->assertJsonPath('data.current_organization.id', $organization->id)
         ->assertJsonPath('data.current_organization.name', 'Acme')
-        ->assertJsonPath('data.current_organization.role', 'admin');
+        ->assertJsonPath('data.current_organization.role.name', 'Admin');
 });
 
 it('reports no current organization after the user was removed from it', function () {

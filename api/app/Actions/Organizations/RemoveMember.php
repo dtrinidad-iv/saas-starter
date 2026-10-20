@@ -3,7 +3,6 @@
 namespace App\Actions\Organizations;
 
 use App\Actions\Organizations\Concerns\EnsuresAnOwnerRemains;
-use App\Enums\OrganizationRole;
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\CurrentOrganization;
@@ -24,7 +23,7 @@ class RemoveMember
     public function handle(Organization $organization, User $member): void
     {
         DB::transaction(function () use ($organization, $member) {
-            if ($member->membership->role === OrganizationRole::Owner) {
+            if ($member->membership->role->is_owner) {
                 $this->ensureAnotherOwner($organization, $member, 'member');
             }
 

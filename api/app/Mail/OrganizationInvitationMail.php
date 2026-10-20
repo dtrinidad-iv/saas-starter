@@ -2,7 +2,6 @@
 
 namespace App\Mail;
 
-use App\Enums\OrganizationRole;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -26,7 +25,7 @@ class OrganizationInvitationMail extends Mailable implements ShouldQueue
     public function __construct(
         public readonly string $organizationName,
         public readonly string $inviterName,
-        public readonly OrganizationRole $role,
+        public readonly string $roleName,
         public readonly string $url,
         public readonly string $expiresAt,
     ) {}
@@ -48,6 +47,22 @@ class OrganizationInvitationMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        return new Content(markdown: 'mail.organization-invitation');
+        // Names are user input: Blade escapes HTML but not Markdown, so a name
+        // like "[Verify](https://evil.example)" would otherwise become a link.
+        // (Other keys than the public properties, which would overwrite them.)
+        return new Content(markdown: 'mail.organization-invitation', with: [
+            'organization' => self::escapeMarkdown($this->organizationName),
+            'inviter' => self::escapeMarkdown($this->inviterName),
+            'role' => self::escapeMarkdown($this->roleName),
+        ]);
+    }
+
+    /**
+     * Escape what can make links, autolinks, emphasis or code; nothing else, so the
+     * plain-text part doesn't fill up with backslashes.
+     */
+    public static function escapeMarkdown(string $value): string
+    {
+        return addcslashes($value, '\\`*_[]<>');
     }
 }

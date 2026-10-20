@@ -1,12 +1,12 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\OrganizationInvitation;
 use Laravel\Sanctum\Sanctum;
 
 it('lists pending invitations of the current organization only', function () {
-    [$owner, $acme] = userInOrganization(OrganizationRole::Owner, 'Acme');
-    [, $otherOrganization] = userInOrganization(OrganizationRole::Owner, 'Other Corp');
+    [$owner, $acme] = userInOrganization(DefaultRole::Owner, 'Acme');
+    [, $otherOrganization] = userInOrganization(DefaultRole::Owner, 'Other Corp');
 
     [$pending] = createInvitation($acme, 'pending@example.com');
     createInvitation($acme, 'accepted@example.com', attributes: ['accepted_at' => now()]);
@@ -25,26 +25,26 @@ it('lists pending invitations of the current organization only', function () {
 
 it('hides invitations from members', function () {
     [, $acme] = userInOrganization();
-    Sanctum::actingAs(addMember($acme, OrganizationRole::Member));
+    Sanctum::actingAs(addMember($acme, DefaultRole::Member));
 
     $this->getJson('/api/invitations')->assertForbidden();
 });
 
-it('lets owners and admins revoke an invitation', function (OrganizationRole $role) {
+it('lets owners and admins revoke an invitation', function (DefaultRole $role) {
     [$owner, $acme] = userInOrganization();
-    $actor = $role === OrganizationRole::Owner ? $owner : addMember($acme, $role);
+    $actor = $role === DefaultRole::Owner ? $owner : addMember($acme, $role);
     [$invitation] = createInvitation($acme, 'new@example.com');
     Sanctum::actingAs($actor);
 
     $this->deleteJson("/api/invitations/{$invitation->id}")->assertNoContent();
 
     expect(OrganizationInvitation::withoutGlobalScopes()->find($invitation->id))->toBeNull();
-})->with([OrganizationRole::Owner, OrganizationRole::Admin]);
+})->with([DefaultRole::Owner, DefaultRole::Admin]);
 
 it('does not let members revoke invitations', function () {
     [, $acme] = userInOrganization();
     [$invitation] = createInvitation($acme, 'new@example.com');
-    Sanctum::actingAs(addMember($acme, OrganizationRole::Member));
+    Sanctum::actingAs(addMember($acme, DefaultRole::Member));
 
     $this->deleteJson("/api/invitations/{$invitation->id}")->assertForbidden();
 
@@ -52,8 +52,8 @@ it('does not let members revoke invitations', function () {
 });
 
 it('cannot revoke another organization\'s invitation', function () {
-    [$owner] = userInOrganization(OrganizationRole::Owner, 'Acme');
-    [, $otherOrganization] = userInOrganization(OrganizationRole::Owner, 'Other Corp');
+    [$owner] = userInOrganization(DefaultRole::Owner, 'Acme');
+    [, $otherOrganization] = userInOrganization(DefaultRole::Owner, 'Other Corp');
     [$foreign] = createInvitation($otherOrganization, 'new@example.com');
     Sanctum::actingAs($owner);
 

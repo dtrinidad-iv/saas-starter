@@ -2,11 +2,13 @@
 
 namespace App\Support;
 
-use App\Enums\OrganizationRole;
+use App\Enums\Permission;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use Closure;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
+use LogicException;
 
 /**
  * The organization the current request (or job) acts in.
@@ -21,7 +23,7 @@ class CurrentOrganization
 
     private ?Organization $organization = null;
 
-    private ?OrganizationRole $role = null;
+    private ?Role $role = null;
 
     public function __construct(private readonly AuthFactory $auth) {}
 
@@ -37,19 +39,31 @@ class CurrentOrganization
         return $this->get()?->getKey();
     }
 
-    public function role(): ?OrganizationRole
+    /**
+     * The acting user's role here; null without a user (e.g. in a job) or organization.
+     */
+    public function role(): ?Role
     {
         $this->resolve();
 
         return $this->role;
     }
 
+    public function can(Permission $permission): bool
+    {
+        return $this->role()?->has($permission) ?? false;
+    }
+
     /**
      * Act in an organization explicitly, e.g. inside a queued job that has no
      * logged-in user. The caller is responsible for having checked access.
      */
-    public function set(Organization $organization, ?OrganizationRole $role = null): void
+    public function set(Organization $organization, ?Role $role = null): void
     {
+        if ($role !== null && $role->organization_id !== $organization->id) {
+            throw new LogicException('The role belongs to another organization.');
+        }
+
         $this->organization = $organization;
         $this->role = $role;
         $this->resolved = true;

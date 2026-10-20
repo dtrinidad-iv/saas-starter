@@ -1,17 +1,17 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\OrganizationInvitation;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
-    [$this->owner, $this->acme] = userInOrganization(OrganizationRole::Owner, 'Acme');
-    [$this->invitee, $this->inviteeOrganization] = userInOrganization(OrganizationRole::Owner, 'Invitee Org');
+    [$this->owner, $this->acme] = userInOrganization(DefaultRole::Owner, 'Acme');
+    [$this->invitee, $this->inviteeOrganization] = userInOrganization(DefaultRole::Owner, 'Invitee Org');
     $this->invitee->forceFill(['email' => 'invitee@example.com'])->save();
 
     [$this->invitation, $this->token] = createInvitation(
-        $this->acme, 'invitee@example.com', OrganizationRole::Admin, ['invited_by' => $this->owner->id],
+        $this->acme, 'invitee@example.com', DefaultRole::Admin, ['invited_by' => $this->owner->id],
     );
 });
 
@@ -22,7 +22,7 @@ it('shows the invitation to the invited person', function () {
         ->assertOk()
         ->assertJsonPath('data.organization.name', 'Acme')
         ->assertJsonPath('data.invited_by', $this->owner->name)
-        ->assertJsonPath('data.role', 'admin')
+        ->assertJsonPath('data.role.name', 'Admin')
         ->assertJsonPath('data.email', 'invitee@example.com');
 });
 
@@ -32,7 +32,7 @@ it('joins with the invited role and switches to the organization', function () {
     $this->postJson("/api/join/{$this->token}")
         ->assertOk()
         ->assertJsonPath('data.id', $this->acme->id)
-        ->assertJsonPath('data.role', 'admin');
+        ->assertJsonPath('data.role.name', 'Admin');
 
     expect($this->invitee->isMemberOf($this->acme))->toBeTrue()
         ->and($this->invitee->fresh()->current_organization_id)->toBe($this->acme->id)
@@ -95,12 +95,12 @@ it('rejects a revoked or unknown token', function () {
 });
 
 it('keeps the existing role when the person is already a member', function () {
-    $this->acme->members()->attach($this->invitee, ['role' => OrganizationRole::Member]);
+    $this->acme->members()->attach($this->invitee, ['role_id' => roleOf($this->acme, DefaultRole::Member)->id]);
     Sanctum::actingAs($this->invitee);
 
     $this->postJson("/api/join/{$this->token}")
         ->assertOk()
-        ->assertJsonPath('data.role', 'member');
+        ->assertJsonPath('data.role.name', 'Member');
 });
 
 it('requires authentication', function () {

@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
@@ -38,11 +38,11 @@ it('creates a personal organization owned by the new user and makes it current',
     $organization = $user->organizations()->sole();
 
     expect($organization->name)->toBe("Ada Lovelace's organization")
-        ->and($organization->membership->role)->toBe(OrganizationRole::Owner)
+        ->and($organization->membership->role->name)->toBe(DefaultRole::Owner->value)
         ->and($user->current_organization_id)->toBe($organization->id);
 
     $response->assertJsonPath('user.current_organization.id', $organization->id)
-        ->assertJsonPath('user.current_organization.role', 'owner');
+        ->assertJsonPath('user.current_organization.role.name', 'Owner');
 });
 
 it('requires name, email and password', function () {

@@ -2,14 +2,14 @@
 
 namespace App\Policies;
 
-use App\Enums\OrganizationRole;
+use App\Enums\Permission;
 use App\Models\Project;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 
 /**
  * Projects are already limited to the current organization by BelongsToOrganization;
- * this decides what each role may do with them.
+ * this decides what the user's role there may do with them.
  */
 class ProjectPolicy
 {
@@ -17,37 +17,30 @@ class ProjectPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->role() !== null;
+        return $this->currentOrganization->can(Permission::ProjectsView);
     }
 
     public function view(User $user, Project $project): bool
     {
-        return $this->role() !== null;
+        return $this->currentOrganization->can(Permission::ProjectsView);
     }
 
     public function create(User $user): bool
     {
-        return $this->role() !== null;
+        return $this->currentOrganization->can(Permission::ProjectsCreate);
     }
 
+    // Changing a project shows its content, so it also needs projects.view.
     public function update(User $user, Project $project): bool
     {
-        return $this->isOwnerOrAdmin()
-            || ($this->role() === OrganizationRole::Member && $project->created_by === $user->id);
+        return $this->view($user, $project) && (
+            $this->currentOrganization->can(Permission::ProjectsUpdateAny)
+            || ($this->currentOrganization->can(Permission::ProjectsUpdateOwn) && $project->created_by === $user->id)
+        );
     }
 
     public function delete(User $user, Project $project): bool
     {
-        return $this->isOwnerOrAdmin();
-    }
-
-    private function role(): ?OrganizationRole
-    {
-        return $this->currentOrganization->role();
-    }
-
-    private function isOwnerOrAdmin(): bool
-    {
-        return in_array($this->role(), [OrganizationRole::Owner, OrganizationRole::Admin], true);
+        return $this->view($user, $project) && $this->currentOrganization->can(Permission::ProjectsDelete);
     }
 }

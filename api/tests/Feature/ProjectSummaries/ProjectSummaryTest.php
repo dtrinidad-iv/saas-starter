@@ -4,7 +4,7 @@ use App\Actions\ProjectSummaries\RequestProjectSummary;
 use App\Ai\AiRequest;
 use App\Ai\Exceptions\AiRequestFailed;
 use App\Ai\Exceptions\AiUnavailable;
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Enums\ProjectSummaryStatus;
 use App\Jobs\GenerateProjectSummary;
 use App\Models\AiUsage;
@@ -193,7 +193,7 @@ it('returns 404 for a summary of another project in the same organization', func
     $this->postJson("/api/projects/{$this->project->id}/summaries/{$draft->id}/approve")->assertNotFound();
 });
 
-it('applies the permission table', function (OrganizationRole $role, bool $ownProject, bool $allowed) {
+it('applies the permission table', function (DefaultRole $role, bool $ownProject, bool $allowed) {
     $user = addMember($this->acme, $role);
     $project = inOrganization($this->acme, function () use ($user, $ownProject) {
         $project = Project::factory()->make(['description' => 'Something']);
@@ -213,10 +213,10 @@ it('applies the permission table', function (OrganizationRole $role, bool $ownPr
     $this->postJson("/api/projects/{$project->id}/summaries/{$draft->id}/reject")->assertStatus($allowed ? 200 : 403);
     $this->postJson("/api/projects/{$project->id}/summary")->assertStatus($allowed ? 202 : 403);
 })->with([
-    'owner' => [OrganizationRole::Owner, false, true],
-    'admin' => [OrganizationRole::Admin, false, true],
-    'member, own project' => [OrganizationRole::Member, true, true],
-    'member, someone else\'s project' => [OrganizationRole::Member, false, false],
+    'owner' => [DefaultRole::Owner, false, true],
+    'admin' => [DefaultRole::Admin, false, true],
+    'member, own project' => [DefaultRole::Member, true, true],
+    'member, someone else\'s project' => [DefaultRole::Member, false, false],
 ]);
 
 it('rate limits AI requests per organization', function () {

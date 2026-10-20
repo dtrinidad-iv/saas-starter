@@ -8,7 +8,7 @@ use App\Models\User;
 
 /**
  * Summaries are scoped to the current organization by BelongsToOrganization.
- * Anyone in it can read them; generating and reviewing follow who may edit the project.
+ * Reading them follows who may view the project; generating and reviewing, who may edit it.
  */
 class ProjectSummaryPolicy
 {

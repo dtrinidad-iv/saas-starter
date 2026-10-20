@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Organization;
 use Laravel\Sanctum\Sanctum;
 
@@ -11,13 +11,13 @@ it('creates an organization owned by the user and switches to it', function () {
     $response = $this->postJson('/api/organizations', ['name' => 'New Co'])
         ->assertCreated()
         ->assertJsonPath('data.name', 'New Co')
-        ->assertJsonPath('data.role', 'owner');
+        ->assertJsonPath('data.role.name', 'Owner');
 
     $organization = Organization::findOrFail($response->json('data.id'));
 
     expect($user->fresh()->current_organization_id)->toBe($organization->id)
         ->and($organization->members()->sole()->is($user))->toBeTrue()
-        ->and($organization->members()->sole()->membership->role)->toBe(OrganizationRole::Owner);
+        ->and($organization->members()->sole()->membership->role->name)->toBe(DefaultRole::Owner->value);
 });
 
 it('requires a name', function () {

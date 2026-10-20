@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Organizations\InviteMember;
-use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organizations\StoreInvitationRequest;
 use App\Http\Resources\InvitationResource;
@@ -25,13 +24,13 @@ class InvitationController extends Controller
         Gate::authorize('viewAny', OrganizationInvitation::class);
 
         return InvitationResource::collection(
-            OrganizationInvitation::pending()->with('inviter')->latest()->get(),
+            OrganizationInvitation::pending()->with(['inviter', 'role'])->latest()->get(),
         );
     }
 
     public function store(StoreInvitationRequest $request, CurrentOrganization $currentOrganization, InviteMember $action): JsonResponse
     {
-        $role = $request->enum('role', OrganizationRole::class);
+        $role = $request->role();
 
         Gate::authorize('create', [OrganizationInvitation::class, $role]);
 

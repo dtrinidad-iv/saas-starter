@@ -1,16 +1,16 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Organization;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 
 it('lists only the organizations the user belongs to, with their role', function () {
-    [$user, $acme] = userInOrganization(OrganizationRole::Owner, 'Acme');
-    $beta = Organization::factory()->withMember($user, OrganizationRole::Member)->create(['name' => 'Beta']);
+    [$user, $acme] = userInOrganization(DefaultRole::Owner, 'Acme');
+    $beta = Organization::factory()->withMember($user, DefaultRole::Member)->create(['name' => 'Beta']);
 
     // Someone else's organization must not show up.
-    [, $other] = userInOrganization(OrganizationRole::Owner, 'Other Corp');
+    [, $other] = userInOrganization(DefaultRole::Owner, 'Other Corp');
 
     Sanctum::actingAs($user);
 
@@ -18,9 +18,9 @@ it('lists only the organizations the user belongs to, with their role', function
         ->assertOk()
         ->assertJsonCount(2, 'data')
         ->assertJsonPath('data.0.id', $acme->id)
-        ->assertJsonPath('data.0.role', 'owner')
+        ->assertJsonPath('data.0.role.name', 'Owner')
         ->assertJsonPath('data.1.id', $beta->id)
-        ->assertJsonPath('data.1.role', 'member')
+        ->assertJsonPath('data.1.role.name', 'Member')
         ->assertJsonPath('meta.current_organization_id', $acme->id)
         ->assertJsonMissing(['id' => $other->id]);
 });

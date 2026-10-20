@@ -20,7 +20,7 @@ class JoinController extends Controller
 
         AcceptInvitation::ensureUsableBy($invitation, $request->user());
 
-        return new InvitationPreviewResource($invitation->load(['organization', 'inviter']));
+        return new InvitationPreviewResource($invitation->load(['organization', 'inviter', 'role']));
     }
 
     public function store(Request $request, string $token, AcceptInvitation $action): OrganizationResource

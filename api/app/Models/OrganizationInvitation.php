@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\OrganizationRole;
 use App\Models\Concerns\BelongsToOrganization;
 use App\Models\Scopes\OrganizationScope;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,12 +15,13 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $organization_id
  * @property string $email
- * @property OrganizationRole $role
+ * @property int|null $role_id Null once the role was deleted (the invitation is then unusable).
+ * @property-read Role|null $role
  * @property int|null $invited_by
  * @property Carbon $expires_at
  * @property Carbon|null $accepted_at
  */
-#[Fillable(['email', 'role', 'token_hash', 'invited_by', 'expires_at'])]
+#[Fillable(['email', 'role_id', 'token_hash', 'invited_by', 'expires_at'])]
 #[Hidden(['token_hash'])]
 class OrganizationInvitation extends Model
 {
@@ -32,7 +32,6 @@ class OrganizationInvitation extends Model
     protected function casts(): array
     {
         return [
-            'role' => OrganizationRole::class,
             'expires_at' => 'datetime',
             'accepted_at' => 'datetime',
         ];
@@ -73,7 +72,7 @@ class OrganizationInvitation extends Model
 
     public function isUsable(): bool
     {
-        return $this->accepted_at === null && ! $this->isExpired();
+        return $this->accepted_at === null && $this->role_id !== null && ! $this->isExpired();
     }
 
     /**
@@ -82,5 +81,16 @@ class OrganizationInvitation extends Model
     public function inviter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'invited_by');
+    }
+
+    /**
+     * Not limited to the current organization: the person joining isn't acting in it.
+     * The (organization_id, role_id) foreign key guarantees it is this organization's role.
+     *
+     * @return BelongsTo<Role, $this>
+     */
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class)->withoutGlobalScope(OrganizationScope::class);
     }
 }

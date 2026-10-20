@@ -2,7 +2,6 @@
 
 namespace App\Actions\Organizations\Concerns;
 
-use App\Enums\OrganizationRole;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\User;
@@ -16,15 +15,16 @@ trait EnsuresAnOwnerRemains
      */
     protected function ensureAnotherOwner(Organization $organization, User $member, string $errorKey): void
     {
-        $otherOwners = Membership::query()
+        // Lock every owner row, the member's own included, in a fixed order: two owners
+        // acting on each other then wait for one another instead of deadlocking.
+        $owners = Membership::query()
             ->where('organization_id', $organization->id)
-            ->where('role', OrganizationRole::Owner)
-            ->where('user_id', '!=', $member->id)
+            ->whereHas('role', fn ($query) => $query->where('is_owner', true))
+            ->orderBy('id')
             ->lockForUpdate()
-            ->get()
-            ->count();
+            ->pluck('user_id');
 
-        if ($otherOwners === 0) {
+        if ($owners->reject(fn (int $userId) => $userId === $member->id)->isEmpty()) {
             throw ValidationException::withMessages([
                 $errorKey => 'An organization needs at least one owner. Make someone else an owner first.',
             ]);

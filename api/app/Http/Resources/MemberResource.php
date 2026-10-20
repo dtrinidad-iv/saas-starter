@@ -7,7 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * A user as a member of an organization (loaded through Organization::members()).
+ * A user as a member of an organization (loaded through Organization::members(),
+ * roles loaded with Membership::loadRoles()).
  *
  * @mixin User
  */
@@ -22,7 +23,7 @@ class MemberResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
-            'role' => $this->membership->role,
+            'role' => RoleResource::summary($this->membership->role),
             'joined_at' => $this->membership->created_at,
         ];
     }

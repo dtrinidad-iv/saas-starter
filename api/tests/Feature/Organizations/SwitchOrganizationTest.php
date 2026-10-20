@@ -1,18 +1,18 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Organization;
 use Laravel\Sanctum\Sanctum;
 
 it('switches to another organization the user belongs to', function () {
     [$user] = userInOrganization();
-    $beta = Organization::factory()->withMember($user, OrganizationRole::Admin)->create(['name' => 'Beta']);
+    $beta = Organization::factory()->withMember($user, DefaultRole::Admin)->create(['name' => 'Beta']);
     Sanctum::actingAs($user);
 
     $this->postJson("/api/organizations/{$beta->id}/switch")
         ->assertOk()
         ->assertJsonPath('data.id', $beta->id)
-        ->assertJsonPath('data.role', 'admin');
+        ->assertJsonPath('data.role.name', 'Admin');
 
     expect($user->fresh()->current_organization_id)->toBe($beta->id);
 

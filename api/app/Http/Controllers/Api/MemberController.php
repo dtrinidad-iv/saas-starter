@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Organizations\ChangeMemberRole;
 use App\Actions\Organizations\RemoveMember;
-use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organizations\UpdateMemberRequest;
 use App\Http\Resources\MemberResource;
@@ -26,15 +25,16 @@ class MemberController extends Controller
     {
         Gate::authorize('viewAny', Membership::class);
 
-        return MemberResource::collection(
-            $this->currentOrganization->get()->members()->orderBy('name')->get(),
-        );
+        $members = $this->currentOrganization->get()->members()->orderBy('name')->get();
+        Membership::loadRoles($members);
+
+        return MemberResource::collection($members);
     }
 
     public function update(UpdateMemberRequest $request, int $member, ChangeMemberRole $action): MemberResource
     {
         $target = $this->findMember($member);
-        $role = $request->enum('role', OrganizationRole::class);
+        $role = $request->role();
 
         Gate::authorize('update', [$target->membership, $role]);
 

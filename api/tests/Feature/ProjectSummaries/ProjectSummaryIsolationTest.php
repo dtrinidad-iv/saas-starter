@@ -1,7 +1,7 @@
 <?php
 
 use App\Ai\AiRequest;
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Enums\ProjectSummaryStatus;
 use App\Jobs\GenerateProjectSummary;
 use App\Models\AiUsage;
@@ -11,8 +11,8 @@ use App\Support\CurrentOrganization;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
-    [$this->ownerA, $this->orgA] = userInOrganization(OrganizationRole::Owner, 'Org A');
-    [$this->ownerB, $this->orgB] = userInOrganization(OrganizationRole::Owner, 'Org B');
+    [$this->ownerA, $this->orgA] = userInOrganization(DefaultRole::Owner, 'Org A');
+    [$this->ownerB, $this->orgB] = userInOrganization(DefaultRole::Owner, 'Org B');
 
     $this->projectA = inOrganization($this->orgA, fn () => Project::factory()->create(['name' => 'A plan', 'description' => 'A only']));
     $this->projectB = inOrganization($this->orgB, fn () => Project::factory()->create(['name' => 'B secret', 'description' => 'B confidential roadmap']));
@@ -64,7 +64,7 @@ it('puts only the target project in the prompt and records usage in its organiza
 });
 
 it('a user in both organizations still only sees the current one\'s summary', function () {
-    $this->orgB->members()->attach($this->ownerA, ['role' => OrganizationRole::Owner]);
+    $this->orgB->members()->attach($this->ownerA, ['role_id' => roleOf($this->orgB, DefaultRole::Owner)->id]);
 
     $this->getJson("/api/projects/{$this->projectB->id}/summary")->assertNotFound();
 
@@ -75,7 +75,7 @@ it('a user in both organizations still only sees the current one\'s summary', fu
 });
 
 it('runs the job in its own organization, not the requester\'s current one', function () {
-    $this->orgB->members()->attach($this->ownerA, ['role' => OrganizationRole::Owner]);
+    $this->orgB->members()->attach($this->ownerA, ['role_id' => roleOf($this->orgB, DefaultRole::Owner)->id]);
     $pendingB = createSummary($this->orgB, $this->projectB, ProjectSummaryStatus::Pending);
     // ownerA's current organization is still A.
     $this->actingAs($this->ownerA);

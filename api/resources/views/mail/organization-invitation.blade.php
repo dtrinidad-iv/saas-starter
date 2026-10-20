@@ -1,7 +1,7 @@
 <x-mail::message>
-# You're invited to {{ $organizationName }}
+# You're invited to {{ $organization }}
 
-{{ $inviterName }} invited you to join **{{ $organizationName }}** as {{ $role->value === 'admin' ? 'an' : 'a' }} **{{ $role->value }}**.
+{{ $inviter }} invited you to join **{{ $organization }}** with the **{{ $role }}** role.
 
 <x-mail::button :url="$url">
 Accept invitation

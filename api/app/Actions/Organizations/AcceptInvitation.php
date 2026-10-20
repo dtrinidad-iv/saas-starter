@@ -31,7 +31,7 @@ class AcceptInvitation
 
             // Already a member (e.g. added another way): keep the existing role.
             if (! $user->isMemberOf($organization)) {
-                $organization->members()->attach($user, ['role' => $invitation->role]);
+                $organization->members()->attach($user, ['role_id' => $invitation->role_id]);
             }
 
             $invitation->forceFill(['accepted_at' => now()])->save();

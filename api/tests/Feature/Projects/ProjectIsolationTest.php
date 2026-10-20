@@ -1,12 +1,12 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Project;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
-    [$this->ownerA, $this->orgA] = userInOrganization(OrganizationRole::Owner, 'Org A');
-    [$this->ownerB, $this->orgB] = userInOrganization(OrganizationRole::Owner, 'Org B');
+    [$this->ownerA, $this->orgA] = userInOrganization(DefaultRole::Owner, 'Org A');
+    [$this->ownerB, $this->orgB] = userInOrganization(DefaultRole::Owner, 'Org B');
 
     $this->projectA = inOrganization($this->orgA, fn () => Project::factory()->create(['name' => 'A plan']));
     $this->projectB = inOrganization($this->orgB, fn () => Project::factory()->create(['name' => 'B secret', 'description' => 'B only']));
@@ -37,7 +37,7 @@ it('cannot delete another organization\'s project', function () {
 });
 
 it('cannot reach another organization\'s project even as a member of both, without switching', function () {
-    $this->orgB->members()->attach($this->ownerA, ['role' => OrganizationRole::Owner]);
+    $this->orgB->members()->attach($this->ownerA, ['role_id' => roleOf($this->orgB, DefaultRole::Owner)->id]);
 
     // Still acting in Org A.
     $this->getJson("/api/projects/{$this->projectB->id}")->assertNotFound();

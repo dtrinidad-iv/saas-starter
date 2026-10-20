@@ -22,7 +22,7 @@ class InvitationPreviewResource extends JsonResource
             'organization' => ['name' => $this->organization->name],
             'invited_by' => $this->inviter?->name,
             'email' => $this->email,
-            'role' => $this->role,
+            'role' => ['name' => $this->role->name],
             'expires_at' => $this->expires_at,
         ];
     }

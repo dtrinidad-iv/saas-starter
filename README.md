@@ -2,7 +2,7 @@
 
 A multi-organization SaaS starter: a **Laravel API** (`api/`) and a **Nuxt app** (`web/`).
 
-Users sign up, belong to several organizations with a role (owner, admin or member), switch between them, invite teammates by email, and manage organization-owned data, starting with Projects. Projects get AI summaries (Claude) that a teammate reviews before they count. Each organization's data is isolated on the server: the active organization comes from the logged-in user, never from the request.
+Users sign up, belong to several organizations with a role (Owner, Admin, Member, or custom roles built from a list of permissions), switch between them, invite teammates by email, and manage organization-owned data, starting with Projects. Projects get AI summaries (Claude) that a teammate reviews before they count. Each organization's data is isolated on the server: the active organization comes from the logged-in user, never from the request.
 
 ## Stack
 
@@ -84,6 +84,7 @@ Every tenant-owned feature has a test proving organization A can't read or write
 | Register, log in, log out, current user | `POST /api/register`, `/login`, `/logout`, `GET /api/me` | `/register`, `/login` |
 | Organizations: list, create, switch | `GET/POST /api/organizations`, `POST /api/organizations/{id}/switch` | Org switcher in the header |
 | Members: list, change role, remove (at least one owner always remains) | `GET/PATCH/DELETE /api/members` | `/members` |
+| Roles: per-organization roles with permissions; create, edit, delete (not the built-in Owner, nor a role in use). People can only grant what they have | `GET/POST/PATCH/DELETE /api/roles`, `GET /api/permissions` | `/roles` |
 | Invitations by email: invite, revoke, accept | `GET/POST/DELETE /api/invitations`, `GET/POST /api/join/{token}` | `/members`, `/join/{token}` |
 | Projects: list with search and pagination (view, edit and delete from each row), create, edit, delete | `/api/projects` (REST) | `/projects`, `/projects/{id}` |
 | AI project summaries: generated on create (or on request) as a draft, then approved or rejected. Rate limited per organization; every AI call is recorded in `ai_usage` with tokens and cost | `GET/POST /api/projects/{id}/summary`, `POST /api/projects/{id}/summaries/{summaryId}/approve`, `/reject` | AI summary card on `/projects/{id}` |

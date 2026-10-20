@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * A pending invitation as seen by the inviting organization's owners and admins.
+ * A pending invitation as seen by the inviting organization's members.invite holders.
  *
  * @mixin OrganizationInvitation
  */
@@ -21,7 +21,7 @@ class InvitationResource extends JsonResource
         return [
             'id' => $this->id,
             'email' => $this->email,
-            'role' => $this->role,
+            'role' => $this->role ? RoleResource::summary($this->role) : null,
             'invited_by' => $this->whenLoaded('inviter', fn () => $this->inviter?->only(['id', 'name'])),
             'expires_at' => $this->expires_at,
             'is_expired' => $this->isExpired(),

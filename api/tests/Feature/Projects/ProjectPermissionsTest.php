@@ -1,14 +1,14 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Project;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
-    [$this->owner, $this->acme] = userInOrganization(OrganizationRole::Owner);
-    $this->admin = addMember($this->acme, OrganizationRole::Admin);
-    $this->member = addMember($this->acme, OrganizationRole::Member);
-    $this->otherMember = addMember($this->acme, OrganizationRole::Member);
+    [$this->owner, $this->acme] = userInOrganization(DefaultRole::Owner);
+    $this->admin = addMember($this->acme, DefaultRole::Admin);
+    $this->member = addMember($this->acme, DefaultRole::Member);
+    $this->otherMember = addMember($this->acme, DefaultRole::Member);
 
     $this->ownProject = inOrganization($this->acme, fn () => Project::factory()->create(['created_by' => $this->member->id]));
     $this->othersProject = inOrganization($this->acme, fn () => Project::factory()->create(['created_by' => $this->otherMember->id]));
@@ -71,7 +71,7 @@ it('loses edit rights on own projects once demoted from admin', function () {
     Sanctum::actingAs($this->admin);
     $this->patchJson("/api/projects/{$project->id}", ['name' => 'As admin'])->assertOk();
 
-    $this->acme->members()->updateExistingPivot($this->admin->id, ['role' => OrganizationRole::Member]);
+    $this->acme->members()->updateExistingPivot($this->admin->id, ['role_id' => roleOf($this->acme, DefaultRole::Member)->id]);
 
     $this->patchJson("/api/projects/{$project->id}", ['name' => 'As member'])->assertForbidden();
 });

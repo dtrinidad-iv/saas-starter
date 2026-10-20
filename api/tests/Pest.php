@@ -1,11 +1,14 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
+use App\Enums\Permission;
 use App\Enums\ProjectSummaryStatus;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\Project;
 use App\Models\ProjectSummary;
+use App\Models\Role;
+use App\Models\Scopes\OrganizationScope;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -58,7 +61,7 @@ expect()->extend('toBeOne', function () {
  *
  * @return array{0: User, 1: Organization}
  */
-function userInOrganization(OrganizationRole $role = OrganizationRole::Owner, string $name = 'Acme'): array
+function userInOrganization(DefaultRole $role = DefaultRole::Owner, string $name = 'Acme'): array
 {
     $user = User::factory()->create();
     $organization = Organization::factory()->withMember($user, $role)->create(['name' => $name]);
@@ -68,12 +71,47 @@ function userInOrganization(OrganizationRole $role = OrganizationRole::Owner, st
 }
 
 /**
+ * One of the organization's roles: a default one, or any role model of it.
+ */
+function roleOf(Organization $organization, DefaultRole|Role $role): Role
+{
+    if ($role instanceof Role) {
+        return $role;
+    }
+
+    return Role::withoutGlobalScope(OrganizationScope::class)
+        ->where('organization_id', $organization->id)
+        ->where('name', $role->value)
+        ->firstOrFail();
+}
+
+/**
+ * Create a custom role in the organization.
+ *
+ * @param  list<Permission>  $permissions
+ */
+function createRole(Organization $organization, string $name, array $permissions): Role
+{
+    return inOrganization($organization, fn () => Role::create(['name' => $name, 'permissions' => $permissions]));
+}
+
+/**
+ * The role a user currently has in the organization.
+ */
+function roleIn(Organization $organization, User $user): Role
+{
+    return Role::withoutGlobalScope(OrganizationScope::class)
+        ->whereKey($organization->members()->findOrFail($user->id)->membership->role_id)
+        ->firstOrFail();
+}
+
+/**
  * Add a new user to the organization with the given role (their current organization).
  */
-function addMember(Organization $organization, OrganizationRole $role = OrganizationRole::Member, array $attributes = []): User
+function addMember(Organization $organization, DefaultRole|Role $role = DefaultRole::Member, array $attributes = []): User
 {
     $user = User::factory()->create($attributes);
-    $organization->members()->attach($user, ['role' => $role]);
+    $organization->members()->attach($user, ['role_id' => roleOf($organization, $role)->id]);
     $user->forceFill(['current_organization_id' => $organization->id])->save();
 
     return $user;
@@ -84,7 +122,7 @@ function addMember(Organization $organization, OrganizationRole $role = Organiza
  *
  * @return array{0: OrganizationInvitation, 1: string}
  */
-function createInvitation(Organization $organization, string $email, OrganizationRole $role = OrganizationRole::Member, array $attributes = []): array
+function createInvitation(Organization $organization, string $email, DefaultRole|Role $role = DefaultRole::Member, array $attributes = []): array
 {
     $token = Str::random(48);
 
@@ -92,7 +130,7 @@ function createInvitation(Organization $organization, string $email, Organizatio
     // forceFill: tests may set non-fillable columns such as accepted_at.
     $invitation = (new OrganizationInvitation)->forceFill(array_merge([
         'email' => $email,
-        'role' => $role,
+        'role_id' => roleOf($organization, $role)->id,
         'token_hash' => OrganizationInvitation::hashToken($token),
         'expires_at' => now()->addDays(7),
     ], $attributes));

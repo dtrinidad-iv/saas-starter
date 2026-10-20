@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Exceptions\NoCurrentOrganization;
 use App\Models\Organization;
 use App\Models\User;
@@ -20,8 +20,8 @@ beforeEach(function () {
         $table->timestamps();
     });
 
-    [$this->userA, $this->orgA] = userInOrganization(OrganizationRole::Owner, 'Org A');
-    [$this->userB, $this->orgB] = userInOrganization(OrganizationRole::Owner, 'Org B');
+    [$this->userA, $this->orgA] = userInOrganization(DefaultRole::Owner, 'Org A');
+    [$this->userB, $this->orgB] = userInOrganization(DefaultRole::Owner, 'Org B');
 
     // Seed one note per organization, each written while acting in that organization.
     actInOrganization($this->orgA);
@@ -101,7 +101,7 @@ it('stops showing an organization\'s rows once the user is removed from it', fun
 });
 
 it('follows the user when they switch organizations', function () {
-    $this->orgB->members()->attach($this->userA, ['role' => OrganizationRole::Member]);
+    $this->orgB->members()->attach($this->userA, ['role_id' => roleOf($this->orgB, DefaultRole::Member)->id]);
     Sanctum::actingAs($this->userA);
 
     expect(TenantNote::pluck('body')->all())->toBe(['A secret']);

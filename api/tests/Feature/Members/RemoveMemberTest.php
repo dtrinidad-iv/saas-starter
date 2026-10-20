@@ -1,12 +1,12 @@
 <?php
 
-use App\Enums\OrganizationRole;
+use App\Enums\DefaultRole;
 use App\Models\Organization;
 use Laravel\Sanctum\Sanctum;
 
-it('applies the removal permissions', function (OrganizationRole $actorRole, OrganizationRole $targetRole, bool $allowed) {
-    [$owner, $acme] = userInOrganization(OrganizationRole::Owner);
-    $actor = $actorRole === OrganizationRole::Owner ? $owner : addMember($acme, $actorRole);
+it('applies the removal permissions', function (DefaultRole $actorRole, DefaultRole $targetRole, bool $allowed) {
+    [$owner, $acme] = userInOrganization(DefaultRole::Owner);
+    $actor = $actorRole === DefaultRole::Owner ? $owner : addMember($acme, $actorRole);
     $target = addMember($acme, $targetRole);
 
     Sanctum::actingAs($actor);
@@ -21,17 +21,17 @@ it('applies the removal permissions', function (OrganizationRole $actorRole, Org
         expect($target->isMemberOf($acme))->toBeTrue();
     }
 })->with([
-    'owner removes member' => [OrganizationRole::Owner, OrganizationRole::Member, true],
-    'owner removes admin' => [OrganizationRole::Owner, OrganizationRole::Admin, true],
-    'owner removes other owner' => [OrganizationRole::Owner, OrganizationRole::Owner, true],
-    'admin removes member' => [OrganizationRole::Admin, OrganizationRole::Member, true],
-    'admin removes admin' => [OrganizationRole::Admin, OrganizationRole::Admin, false],
-    'admin removes owner' => [OrganizationRole::Admin, OrganizationRole::Owner, false],
-    'member removes member' => [OrganizationRole::Member, OrganizationRole::Member, false],
+    'owner removes member' => [DefaultRole::Owner, DefaultRole::Member, true],
+    'owner removes admin' => [DefaultRole::Owner, DefaultRole::Admin, true],
+    'owner removes other owner' => [DefaultRole::Owner, DefaultRole::Owner, true],
+    'admin removes member' => [DefaultRole::Admin, DefaultRole::Member, true],
+    'admin removes admin' => [DefaultRole::Admin, DefaultRole::Admin, false],
+    'admin removes owner' => [DefaultRole::Admin, DefaultRole::Owner, false],
+    'member removes member' => [DefaultRole::Member, DefaultRole::Member, false],
 ]);
 
-it('lets anyone leave', function (OrganizationRole $role) {
-    [, $acme] = userInOrganization(OrganizationRole::Owner);
+it('lets anyone leave', function (DefaultRole $role) {
+    [, $acme] = userInOrganization(DefaultRole::Owner);
     $member = addMember($acme, $role);
     Sanctum::actingAs($member);
 
@@ -39,11 +39,11 @@ it('lets anyone leave', function (OrganizationRole $role) {
 
     expect($member->isMemberOf($acme))->toBeFalse()
         ->and($member->fresh()->current_organization_id)->toBeNull();
-})->with([OrganizationRole::Member, OrganizationRole::Admin, OrganizationRole::Owner]);
+})->with([DefaultRole::Member, DefaultRole::Admin, DefaultRole::Owner]);
 
 it('refuses to let the last owner leave', function () {
-    [$owner, $acme] = userInOrganization(OrganizationRole::Owner);
-    addMember($acme, OrganizationRole::Admin);
+    [$owner, $acme] = userInOrganization(DefaultRole::Owner);
+    addMember($acme, DefaultRole::Admin);
     Sanctum::actingAs($owner);
 
     $this->deleteJson("/api/members/{$owner->id}")
@@ -54,7 +54,7 @@ it('refuses to let the last owner leave', function () {
 });
 
 it('moves a removed member to another of their organizations', function () {
-    [$owner, $acme] = userInOrganization(OrganizationRole::Owner, 'Acme');
+    [$owner, $acme] = userInOrganization(DefaultRole::Owner, 'Acme');
     $member = addMember($acme);
     $beta = Organization::factory()->withMember($member)->create(['name' => 'Beta']);
     Sanctum::actingAs($owner);
@@ -65,7 +65,7 @@ it('moves a removed member to another of their organizations', function () {
 });
 
 it('cuts off access immediately for the removed member', function () {
-    [$owner, $acme] = userInOrganization(OrganizationRole::Owner);
+    [$owner, $acme] = userInOrganization(DefaultRole::Owner);
     $member = addMember($acme);
     $token = $member->createToken('api')->plainTextToken;
 
@@ -78,8 +78,8 @@ it('cuts off access immediately for the removed member', function () {
 });
 
 it('cannot remove someone in another organization', function () {
-    [$owner] = userInOrganization(OrganizationRole::Owner, 'Acme');
-    [$otherOwner, $otherOrganization] = userInOrganization(OrganizationRole::Owner, 'Other Corp');
+    [$owner] = userInOrganization(DefaultRole::Owner, 'Acme');
+    [$otherOwner, $otherOrganization] = userInOrganization(DefaultRole::Owner, 'Other Corp');
     Sanctum::actingAs($owner);
 
     $this->deleteJson("/api/members/{$otherOwner->id}")->assertNotFound();
