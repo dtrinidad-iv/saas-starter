@@ -30,11 +30,14 @@ class RequestProjectSummary
      * Queue a new summary for a project in the current organization, or return
      * the one already being generated. Open drafts are retired by the new request.
      *
+     * $source names a system trigger (e.g. "backfill"): the requester is still billed
+     * and credited, but the audit entry has no actor, since they didn't act.
+     *
      * @throws AiBudgetExceeded when a new summary is needed and the monthly budget is used up (nothing changes)
      */
-    public function handle(Project $project, ?User $requester): ProjectSummary
+    public function handle(Project $project, ?User $requester, ?string $source = null): ProjectSummary
     {
-        [$summary, $created] = DB::transaction(function () use ($project, $requester) {
+        [$summary, $created] = DB::transaction(function () use ($project, $requester, $source) {
             // Lock the project so two clicks can't both start a summary. Scoped, so a
             // project from another organization fails here instead of being linked.
             Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
@@ -64,8 +67,8 @@ class RequestProjectSummary
             $this->recordAudit->handle(
                 AuditAction::SummaryRequested,
                 ['type' => 'project', 'id' => $project->id, 'label' => $project->name],
-                metadata: ['summary_id' => $summary->id],
-                actor: $requester,
+                metadata: ['summary_id' => $summary->id, ...($source !== null ? ['source' => $source] : [])],
+                actor: $source === null ? $requester : null,
             );
 
             return [$summary, true];

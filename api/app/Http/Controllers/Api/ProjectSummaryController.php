@@ -6,6 +6,7 @@ use App\Actions\ProjectSummaries\RequestProjectSummary;
 use App\Actions\ProjectSummaries\ReviewProjectSummary;
 use App\Enums\ProjectSummaryStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ProjectSummaries\ApproveProjectSummaryRequest;
 use App\Http\Resources\ProjectSummaryResource;
 use App\Models\Project;
 use App\Models\ProjectSummary;
@@ -52,9 +53,9 @@ class ProjectSummaryController extends Controller
         return (new ProjectSummaryResource($summary))->response()->setStatusCode(202);
     }
 
-    public function approve(Request $request, Project $project, ProjectSummary $summary, ReviewProjectSummary $action): ProjectSummaryResource
+    public function approve(ApproveProjectSummaryRequest $request, Project $project, ProjectSummary $summary, ReviewProjectSummary $action): ProjectSummaryResource
     {
-        return $this->review($request, $project, $summary, $action, true);
+        return $this->review($request, $project, $summary, $action, true, $request->validated());
     }
 
     public function reject(Request $request, Project $project, ProjectSummary $summary, ReviewProjectSummary $action): ProjectSummaryResource
@@ -62,12 +63,15 @@ class ProjectSummaryController extends Controller
         return $this->review($request, $project, $summary, $action, false);
     }
 
-    private function review(Request $request, Project $project, ProjectSummary $summary, ReviewProjectSummary $action, bool $approve): ProjectSummaryResource
+    /**
+     * @param  array<string, mixed>  $edits
+     */
+    private function review(Request $request, Project $project, ProjectSummary $summary, ReviewProjectSummary $action, bool $approve, array $edits = []): ProjectSummaryResource
     {
         $summary->setRelation('project', $project);
         Gate::authorize('review', $summary);
 
-        $summary = $action->handle($summary, $request->user(), $approve);
+        $summary = $action->handle($summary, $request->user(), $approve, $edits);
         $summary->setRelation('project', $project);
 
         return new ProjectSummaryResource($summary);

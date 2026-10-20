@@ -98,3 +98,17 @@ it('does nothing when the job\'s organization and summary don\'t match', functio
     expect(ProjectSummary::withoutGlobalScopes()->find($pendingB->id)->status)->toBe(ProjectSummaryStatus::Pending)
         ->and(AiUsage::withoutGlobalScopes()->count())->toBe(0);
 });
+
+it('a user in both organizations can only edit the current one\'s draft', function () {
+    $this->orgB->members()->attach($this->ownerA, ['role_id' => roleOf($this->orgB, DefaultRole::Owner)->id]);
+
+    $this->postJson("/api/projects/{$this->projectB->id}/summaries/{$this->draftB->id}/approve", ['summary' => 'Mine'])->assertNotFound();
+    expect(ProjectSummary::withoutGlobalScopes()->find($this->draftB->id))
+        ->status->toBe(ProjectSummaryStatus::Draft)
+        ->summary->toBe('B summary');
+
+    $this->postJson("/api/organizations/{$this->orgB->id}/switch")->assertOk();
+    $this->postJson("/api/projects/{$this->projectB->id}/summaries/{$this->draftB->id}/approve", ['summary' => 'Mine'])
+        ->assertOk()
+        ->assertJsonPath('data.summary', 'Mine');
+});

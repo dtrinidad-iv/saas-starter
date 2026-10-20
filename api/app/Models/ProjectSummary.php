@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property list<string>|null $key_points
  * @property string|null $model
  * @property string|null $error
+ * @property string|null $source_hash
  * @property int|null $requested_by
  * @property int|null $reviewed_by
  * @property Carbon|null $reviewed_at

@@ -54,6 +54,15 @@ class ProjectSummaryPrompt
     }
 
     /**
+     * Identifies the project fields that go into the prompt, so a summary can tell
+     * when the project has changed since it was written.
+     */
+    public static function sourceHash(Project $project): string
+    {
+        return hash('sha256', $project->name."\0".(string) $project->description);
+    }
+
+    /**
      * Length limits aren't supported in structured-output schemas; the job
      * enforces them when validating the output (see rules()).
      *

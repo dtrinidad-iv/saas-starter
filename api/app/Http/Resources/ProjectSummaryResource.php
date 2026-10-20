@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Ai\Prompts\ProjectSummaryPrompt;
 use App\Enums\ProjectSummaryStatus;
 use App\Models\ProjectSummary;
 use Illuminate\Http\Request;
@@ -35,6 +36,9 @@ class ProjectSummaryResource extends JsonResource
             'summary' => $this->summary,
             'key_points' => $this->key_points ?? [],
             'model' => $this->model,
+            // The project's name or description changed since this summary was written.
+            'stale' => $this->source_hash !== null && $project !== null
+                && ! hash_equals($this->source_hash, ProjectSummaryPrompt::sourceHash($project)),
             'error' => $this->status === ProjectSummaryStatus::Failed
                 ? (self::ERROR_MESSAGES[$this->error] ?? 'The summary could not be generated.')
                 : null,

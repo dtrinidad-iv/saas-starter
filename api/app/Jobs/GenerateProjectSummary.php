@@ -8,6 +8,7 @@ use App\Ai\Prompts\ProjectSummaryPrompt;
 use App\Enums\ProjectSummaryStatus;
 use App\Models\ProjectSummary;
 use Illuminate\Queue\Middleware\RateLimited;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Throwable;
 
@@ -57,13 +58,24 @@ class GenerateProjectSummary extends OrganizationJob
 
         $output = $validator->validated();
 
-        $summary->forceFill([
-            'status' => ProjectSummaryStatus::Draft,
-            'summary' => trim($output['summary']),
-            'key_points' => array_values(array_map(trim(...), $output['key_points'])),
-            'model' => $response->model,
-            'error' => null,
-        ])->save();
+        // Saved only if still pending: a newer request may have given up on this one meanwhile.
+        DB::transaction(function () use ($summary, $output, $response) {
+            $locked = ProjectSummary::query()->whereKey($summary->id)->lockForUpdate()->first();
+
+            if ($locked?->status !== ProjectSummaryStatus::Pending) {
+                return;
+            }
+
+            $locked->forceFill([
+                'status' => ProjectSummaryStatus::Draft,
+                'summary' => trim($output['summary']),
+                'key_points' => array_values(array_map(trim(...), $output['key_points'])),
+                'model' => $response->model,
+                'error' => null,
+                // Of the project as it was sent, which may differ from when it was requested.
+                'source_hash' => ProjectSummaryPrompt::sourceHash($summary->project),
+            ])->save();
+        });
     }
 
     /**
