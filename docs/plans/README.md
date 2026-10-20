@@ -14,3 +14,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 04 | [Organization members and invitations](04-organization-members.md) | Done |
 | 05 | [Projects](05-projects.md) | Done |
 | 06 | [Claude Code tooling](06-claude-code-tooling.md) | Done |
+| 07 | [Projects UI fixes](07-projects-ui-fixes.md) | Done |
