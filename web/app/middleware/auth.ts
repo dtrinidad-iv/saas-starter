@@ -1,5 +1,7 @@
-export default defineNuxtRouteMiddleware(() => {
+export default defineNuxtRouteMiddleware((to) => {
   if (!useAuthStore().isLoggedIn) {
-    return navigateTo('/login')
+    // Come back here after logging in (e.g. an invitation link).
+    const query = to.fullPath === '/' ? {} : { redirect: to.fullPath }
+    return navigateTo({ path: '/login', query })
   }
 })

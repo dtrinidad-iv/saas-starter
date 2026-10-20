@@ -32,3 +32,29 @@ export interface LoginPayload {
   email: string
   password: string
 }
+
+export interface Member {
+  id: number
+  name: string
+  email: string
+  role: OrganizationRole
+  joined_at: string
+}
+
+export interface Invitation {
+  id: number
+  email: string
+  role: OrganizationRole
+  invited_by: { id: number, name: string } | null
+  expires_at: string
+  is_expired: boolean
+  created_at: string
+}
+
+export interface InvitationPreview {
+  organization: { name: string }
+  invited_by: string | null
+  email: string
+  role: OrganizationRole
+  expires_at: string
+}

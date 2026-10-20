@@ -26,7 +26,16 @@ const userMenu = computed<DropdownMenuItem[][]>(() => [
             SaaS Starter
           </NuxtLink>
 
-          <OrgSwitcher v-if="auth.user" />
+          <template v-if="auth.user">
+            <OrgSwitcher />
+            <UButton
+              v-if="auth.user.current_organization"
+              to="/members"
+              label="Members"
+              color="neutral"
+              variant="ghost"
+            />
+          </template>
         </div>
 
         <UDropdownMenu

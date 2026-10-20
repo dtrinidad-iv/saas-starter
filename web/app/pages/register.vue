@@ -7,6 +7,7 @@ useSeoMeta({ title: 'Create account' })
 
 const auth = useAuthStore()
 const toast = useToast()
+const route = useRoute()
 
 const form = useTemplateRef<Form<RegisterPayload>>('form')
 const state = reactive<RegisterPayload>({
@@ -35,7 +36,7 @@ async function onSubmit(event: FormSubmitEvent<RegisterPayload>) {
   loading.value = true
   try {
     await auth.register(event.data)
-    await navigateTo('/')
+    await navigateTo(safeRedirect(route.query.redirect))
   }
   catch (error) {
     const fieldErrors = toFormErrors(error)
@@ -126,7 +127,7 @@ async function onSubmit(event: FormSubmitEvent<RegisterPayload>) {
       <p class="text-center text-sm text-muted">
         Already have an account?
         <ULink
-          to="/login"
+          :to="{ path: '/login', query: route.query }"
           class="text-primary font-medium"
         >
           Log in
