@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.83", "--headless", "--isolated", "--output-dir", ".playwright-mcp"]
+    },
+    "nuxt-ui": {
+      "type": "http",
+      "url": "https://ui.nuxt.com/mcp"
+    },
+    "nuxt": {
+      "type": "http",
+      "url": "https://nuxt.com/mcp"
+    }
+  }
+}

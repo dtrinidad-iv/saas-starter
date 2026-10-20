@@ -49,6 +49,22 @@
 - Domain events (e.g. `ProjectCreated`) dispatch jobs. Keep listeners small.
 - Per-organization webhooks: sign outgoing payloads (HMAC) and verify incoming ones.
 
+## Claude Code tooling (`.claude/`, `.mcp.json`)
+- Skills:
+  - `/plan-task` (write a plan and stop for approval)
+  - `/verify` (Pint, Pest, lint, typecheck, build)
+  - `/tenant-feature` (recipe for adding a tenant-owned feature)
+  - `/e2e-smoke` (real servers on :8011/:3011)
+  - `/ship-plan` (commit, push and mark the plan Done; only you can start it)
+- Subagents:
+  - Read-only reviewers: `code-reviewer`, `security-auditor`, `tenant-isolation-reviewer`, `database-reviewer`, and `ui-reviewer` (browser).
+  - `laravel-test-writer` can edit only `api/tests/`, enforced by a hook.
+- Before reporting a change as done, run the reviewers that fit, in parallel:
+  - always code, security and tenant isolation;
+  - database when there are migrations or queries;
+  - UI when pages change.
+- MCP: `playwright` (headless browser for e2e and UI review), plus `nuxt-ui` and `nuxt` (docs). Check the Nuxt UI MCP before guessing component props.
+
 ## Workflow rules
 - Plan first for anything touching more than 3 files, then wait for approval.
 - Plans live in `docs/plans/NN-task-name.md` (named after the task) with a Status line: Proposed → WIP (on approval) → Done (when committed, with commit hashes). Keep the index in `docs/plans/README.md` in sync.
