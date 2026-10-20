@@ -19,3 +19,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 09 | [AI layer and project summaries](09-ai-layer.md) | Done |
 | 10 | [Custom roles and permissions](10-custom-roles.md) | Done |
 | 11 | [Audit trail](11-audit-trail.md) | Done |
+| 12 | [Sidebar layout](12-sidebar-layout.md) | Done |
