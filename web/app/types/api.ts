@@ -1,7 +1,18 @@
+export type OrganizationRole = 'owner' | 'admin' | 'member'
+
+export interface Organization {
+  id: number
+  name: string
+  /** The current user's role in this organization. */
+  role: OrganizationRole
+  created_at: string
+}
+
 export interface User {
   id: number
   name: string
   email: string
+  current_organization: Organization | null
   created_at: string
 }
 

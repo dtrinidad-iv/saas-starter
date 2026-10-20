@@ -1,7 +1,11 @@
-import { defineStore, skipHydrate } from 'pinia'
-import type { AuthResponse, LoginPayload, RegisterPayload, User } from '~/types/api'
+import { defineStore, getActivePinia, skipHydrate } from 'pinia'
+import type { AuthResponse, LoginPayload, Organization, RegisterPayload, User } from '~/types/api'
 
 export const useAuthStore = defineStore('auth', () => {
+  // The Pinia instance of this request. Other stores are looked up through it, because
+  // clearSession can run after an await (outside the Nuxt context) during SSR.
+  const pinia = getActivePinia()
+
   // A cookie (not localStorage) so server-side rendering can send the token too.
   const token = useCookie<string | null>('auth_token', {
     default: () => null,
@@ -21,6 +25,13 @@ export const useAuthStore = defineStore('auth', () => {
   function clearSession() {
     token.value = null
     user.value = null
+    useOrganizationStore(pinia).reset()
+  }
+
+  function setCurrentOrganization(organization: Organization) {
+    if (user.value) {
+      user.value = { ...user.value, current_organization: organization }
+    }
   }
 
   async function register(payload: RegisterPayload) {
@@ -62,5 +73,5 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // skipHydrate: keep the live cookie ref instead of replacing it with the SSR payload value.
-  return { token: skipHydrate(token), user, isLoggedIn, register, login, logout, fetchMe, clearSession }
+  return { token: skipHydrate(token), user, isLoggedIn, register, login, logout, fetchMe, clearSession, setCurrentOrganization }
 })

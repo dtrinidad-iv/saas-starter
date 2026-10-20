@@ -18,14 +18,16 @@ const userMenu = computed<DropdownMenuItem[][]>(() => [
   <div class="min-h-screen">
     <header class="border-b border-default">
       <UContainer class="flex h-16 items-center justify-between gap-4">
-        <NuxtLink
-          to="/"
-          class="font-semibold"
-        >
-          SaaS Starter
-        </NuxtLink>
+        <div class="flex items-center gap-4">
+          <NuxtLink
+            to="/"
+            class="font-semibold"
+          >
+            SaaS Starter
+          </NuxtLink>
 
-        <!-- The organization switcher will go here. -->
+          <OrgSwitcher v-if="auth.user" />
+        </div>
 
         <UDropdownMenu
           v-if="auth.user"
