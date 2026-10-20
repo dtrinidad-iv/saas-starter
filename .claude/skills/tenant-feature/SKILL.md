@@ -20,6 +20,7 @@ Projects is the reference implementation. Open each file named below and follow 
    - `use BelongsToOrganization, HasFactory;`. This trait is what isolates organizations: a global scope that fails closed, `organization_id` forced on create, and a LogicException if it changes.
    - `#[Fillable([...])]`. Never make `organization_id` fillable.
    - In tests and seeders, create records inside `inOrganization($org, fn () => ...)`.
+   - If users create, edit or delete it, also `use Auditable;` and add `<thing>.created|updated|deleted` cases (with labels) to `App\Enums\AuditAction`. List columns that shouldn't be logged in `$auditExclude`.
 3. **Policy.** Reference: `app/Policies/ProjectPolicy.php`. Decide by `CurrentOrganization::role()` (owner, admin or member) and ownership fields. Never check `organization_id` here; the scope already handles that.
 4. **Actions.** Reference: `app/Actions/Projects/`. One class per write operation. It sets server-side fields such as `created_by` and dispatches domain events (`app/Events/ProjectCreated.php`).
 5. **Form Requests.** Reference: `app/Http/Requests/Projects/`.
@@ -43,6 +44,7 @@ Use the helpers from `tests/Pest.php`: `userInOrganization()`, `addMember()`, `i
   - uniqueness per organization;
   - pagination and search;
   - events (`Event::fake`);
+  - audit entries for create, update and delete (`auditLogOf($org)`);
   - 401 without login and 403 without a current organization.
 - Prove the tests catch mistakes: temporarily remove the trait or make the policy allow everything, confirm tests fail, then restore it.
 
