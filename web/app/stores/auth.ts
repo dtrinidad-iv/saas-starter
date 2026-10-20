@@ -1,4 +1,5 @@
 import { defineStore, getActivePinia, skipHydrate } from 'pinia'
+import type { RouteLocationRaw } from 'vue-router'
 import type { AuthResponse, LoginPayload, Organization, RegisterPayload, User } from '~/types/api'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -15,7 +16,8 @@ export const useAuthStore = defineStore('auth', () => {
   })
   const user = ref<User | null>(null)
 
-  const isLoggedIn = computed(() => !!user.value?.id)
+  // Logout drops the token before the user (see logout), so check both.
+  const isLoggedIn = computed(() => !!token.value && !!user.value?.id)
 
   function setSession(response: AuthResponse) {
     token.value = response.token
@@ -44,13 +46,26 @@ export const useAuthStore = defineStore('auth', () => {
     setSession(await api<AuthResponse>('/api/login', { method: 'POST', body: payload }))
   }
 
-  async function logout() {
-    const api = useApi()
+  async function logout(to: RouteLocationRaw = '/login') {
+    // Not useApi's 401 handling: it would clear the session on this page (see below).
+    const api = useApi({ handleUnauthorized: false })
+    const nuxtApp = useNuxtApp()
     try {
       await api('/api/logout', { method: 'POST' })
     }
+    catch (error) {
+      // Log out locally anyway (e.g. token already revoked in another tab).
+      console.error('Could not revoke the token', error)
+    }
+
+    // Drop the token, leave the page, then clear the user: clearing it while the
+    // page is still shown fires its organization watchers (refetching without a
+    // token) and hides the sidebar for a frame.
+    token.value = null
+    try {
+      await nuxtApp.runWithContext(() => navigateTo(to))
+    }
     finally {
-      // Log out locally even if the API call fails (e.g. token already revoked).
       clearSession()
     }
   }

@@ -8,11 +8,6 @@ const auth = useAuthStore()
 const colorMode = useColorMode()
 const { appVersion } = useRuntimeConfig().public
 
-async function logout() {
-  await auth.logout()
-  await navigateTo('/login')
-}
-
 const appearances = [
   { label: 'Light', value: 'light', icon: 'i-lucide-sun' },
   { label: 'Dark', value: 'dark', icon: 'i-lucide-moon' },
@@ -35,7 +30,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
       },
     })),
   }],
-  [{ label: 'Log out', icon: 'i-lucide-log-out', onSelect: logout }],
+  [{ label: 'Log out', icon: 'i-lucide-log-out', onSelect: () => auth.logout() }],
 ])
 </script>
 

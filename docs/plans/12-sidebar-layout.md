@@ -52,5 +52,6 @@ The app uses a top `UHeader` (logo, org switcher, nav links, account menu). Navi
 - Commit: `feat(web): replace header with collapsible sidebar`, then mark plan Done.
 
 ## Follow-ups
-- Logout: the sidebar disappears for about one frame before `/login` renders, because `auth.user` clears before navigation finishes.
-- A 401 on `GET /api/projects?page=1` showed twice in e2e browser runs, each time on the first load right after login or logout. It did not reproduce on later attempts. It may predate this change, since login is untouched; worth checking on its own.
+Both fixed after shipping. Cause: logout cleared the user while the page was still shown, so pages' `organizations.current?.id` watchers fired (on `/projects` with a search, a refetch without a token: the 401) and the sidebar's `v-if="auth.user"` hid it for a frame. `auth.logout(to)` now drops the token, navigates, then clears the session; `isLoggedIn` needs the token too, so `/login`'s guest middleware lets that navigation through; `useApi({ handleUnauthorized: false })` keeps a 401 on the logout call itself (token revoked in another tab) from clearing the session early.
+- ~~Logout: the sidebar disappears for about one frame before `/login` renders.~~
+- ~~A 401 on `GET /api/projects?page=1` after logout.~~

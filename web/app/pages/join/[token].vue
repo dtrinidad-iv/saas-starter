@@ -47,8 +47,7 @@ async function accept() {
 }
 
 async function switchAccount() {
-  await auth.logout()
-  await navigateTo({ path: '/login', query: { redirect: route.fullPath } })
+  await auth.logout({ path: '/login', query: { redirect: route.fullPath } })
 }
 </script>
 

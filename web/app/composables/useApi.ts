@@ -4,8 +4,10 @@
  *
  * Call it synchronously at the top of a setup function or store action,
  * not after an `await`, so it can still reach the Nuxt app context.
+ *
+ * `handleUnauthorized: false` leaves a 401 to the caller (logout cleans up itself).
  */
-export function useApi() {
+export function useApi({ handleUnauthorized = true }: { handleUnauthorized?: boolean } = {}) {
   const config = useRuntimeConfig()
   const auth = useAuthStore()
   const nuxtApp = useNuxtApp()
@@ -21,7 +23,7 @@ export function useApi() {
     },
 
     async onResponseError({ response }) {
-      if (response.status !== 401) {
+      if (response.status !== 401 || !handleUnauthorized) {
         return
       }
 
