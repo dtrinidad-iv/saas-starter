@@ -30,7 +30,7 @@
 - Use `<script setup lang="ts">` and Nuxt UI components before writing custom ones.
 - API calls go through one composable (`useApi`) that attaches the auth token.
 - Current user and current organization live in Pinia stores.
-- The org switcher lives in the main layout header.
+- The main layout is a collapsible sidebar (`UDashboardSidebar`): app name at the top, then the org switcher and navigation; the footer has the account menu (appearance, log out) and app version. The top bar (`UDashboardNavbar`) has the sidebar toggle/collapse button and the account menu on the right.
 
 ## AI layer conventions
 - All AI calls happen in Laravel. Never expose provider keys to Nuxt.

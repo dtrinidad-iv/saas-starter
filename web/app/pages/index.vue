@@ -51,7 +51,7 @@ const memberSince = computed(() =>
         v-else
         class="text-sm text-muted"
       >
-        You are not in an organization. Create one from the switcher in the header.
+        You are not in an organization. Create one from the switcher in the sidebar.
       </p>
     </UCard>
 

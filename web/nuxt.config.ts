@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { version } from './package.json'
+
 export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@nuxt/ui', '@pinia/nuxt'],
 
@@ -10,6 +12,8 @@ export default defineNuxtConfig({
     public: {
       // Overridden by NUXT_PUBLIC_API_BASE
       apiBase: 'http://localhost:8000',
+      // Shown in the sidebar footer
+      appVersion: version,
     },
   },
 

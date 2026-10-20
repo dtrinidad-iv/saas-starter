@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, Form, FormError, FormSubmitEvent } from '@nuxt/ui'
 
+defineProps<{ collapsed?: boolean }>()
+
 const organizations = useOrganizationStore()
 const toast = useToast()
 
 const switching = ref(false)
+const currentName = computed(() => organizations.current?.name ?? 'No organization')
 
 const items = computed<DropdownMenuItem[][]>(() => [
   [{ label: 'Organizations', type: 'label' }],
@@ -84,15 +87,24 @@ async function onCreate(event: FormSubmitEvent<{ name: string }>) {
       :content="{ align: 'start' }"
       @update:open="onOpen"
     >
-      <UButton
-        color="neutral"
-        variant="outline"
-        :label="organizations.current?.name ?? 'No organization'"
-        :loading="switching"
-        trailing-icon="i-lucide-chevrons-up-down"
-        class="max-w-56"
-        :ui="{ label: 'truncate' }"
-      />
+      <UTooltip
+        :text="currentName"
+        :disabled="!collapsed"
+        :content="{ side: 'right' }"
+      >
+        <UButton
+          color="neutral"
+          variant="outline"
+          :label="collapsed ? undefined : currentName"
+          :aria-label="`Organization: ${currentName}`"
+          :icon="collapsed ? 'i-lucide-building-2' : undefined"
+          :square="collapsed"
+          :loading="switching"
+          :trailing-icon="collapsed ? undefined : 'i-lucide-chevrons-up-down'"
+          block
+          :ui="{ label: 'truncate', trailingIcon: 'ms-auto' }"
+        />
+      </UTooltip>
     </UDropdownMenu>
 
     <UModal

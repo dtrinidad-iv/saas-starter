@@ -84,7 +84,7 @@ Every tenant-owned feature has a test proving organization A can't read or write
 | Feature | API | Web |
 |---|---|---|
 | Register, log in, log out, current user | `POST /api/register`, `/login`, `/logout`, `GET /api/me` | `/register`, `/login` |
-| Organizations: list, create, switch | `GET/POST /api/organizations`, `POST /api/organizations/{id}/switch` | Org switcher in the header |
+| Organizations: list, create, switch | `GET/POST /api/organizations`, `POST /api/organizations/{id}/switch` | Org switcher in the sidebar |
 | Members: list, change role, remove (at least one owner always remains) | `GET/PATCH/DELETE /api/members` | `/members` |
 | Roles: per-organization roles with permissions; create, edit, delete (not the built-in Owner, nor a role in use). People can only grant what they have | `GET/POST/PATCH/DELETE /api/roles`, `GET /api/permissions` | `/roles` |
 | Invitations by email: invite, revoke, accept | `GET/POST/DELETE /api/invitations`, `GET/POST /api/join/{token}` | `/members`, `/join/{token}` |
