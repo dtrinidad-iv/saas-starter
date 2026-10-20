@@ -3,7 +3,7 @@
 # Never uses :8000/:3000 (the developer's own servers, or other projects).
 #
 # Usage: servers.sh start | stop | status | cleanup
-#   start    build web (skip with SKIP_BUILD=1), start API :8011 and web :3011, wait until both answer
+#   start    build web (skip with SKIP_BUILD=1), start API :8011 (4 workers, for streaming) and web :3011, wait until both answer
 #   stop     stop both
 #   cleanup  delete e2e-*@example.com users, their tokens and organizations only they belong to
 set -uo pipefail
@@ -74,7 +74,7 @@ start() {
     (cd "$root/web" && npm run build --silent >"$state/build.log" 2>&1) || { echo "web build failed, see $state/build.log" >&2; exit 1; }
   fi
 
-  (cd "$root/api/public" && FRONTEND_URL="http://localhost:$WEB_PORT" nohup "$php" -S "127.0.0.1:$API_PORT" \
+  (cd "$root/api/public" && FRONTEND_URL="http://localhost:$WEB_PORT" PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
     ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php >"$state/api.log" 2>&1 &) </dev/null >/dev/null 2>&1
   (cd "$root/web" && PORT=$WEB_PORT NUXT_PUBLIC_API_BASE="http://localhost:$API_PORT" nohup node .output/server/index.mjs \
     >"$state/web.log" 2>&1 &) </dev/null >/dev/null 2>&1
