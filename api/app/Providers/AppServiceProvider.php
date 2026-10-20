@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Ai\AiBudget;
 use App\Ai\Clients\AnthropicClient;
+use App\Ai\Clients\BudgetedAiClient;
 use App\Ai\Clients\FakeAiClient;
 use App\Ai\Clients\RecordingAiClient;
 use App\Ai\Contracts\AiClient;
@@ -26,11 +28,15 @@ class AppServiceProvider extends ServiceProvider
         // Scoped: fresh per request and per queued job.
         $this->app->scoped(CurrentOrganization::class);
 
-        // The provider from config/ai.php, wrapped so every call lands in ai_usage.
-        $this->app->bind(AiClient::class, fn (Application $app) => new RecordingAiClient(
-            $app->make('ai.provider'),
-            config('ai.model'),
-            config('ai.pricing'),
+        // The provider from config/ai.php, wrapped so every call lands in ai_usage,
+        // and refused up front once the organization's monthly budget is used up.
+        $this->app->bind(AiClient::class, fn (Application $app) => new BudgetedAiClient(
+            new RecordingAiClient(
+                $app->make('ai.provider'),
+                config('ai.model'),
+                config('ai.pricing'),
+            ),
+            $app->make(AiBudget::class),
         ));
 
         $this->app->bind('ai.provider', fn (Application $app) => match (config('ai.provider')) {

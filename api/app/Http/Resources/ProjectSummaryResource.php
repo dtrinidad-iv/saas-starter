@@ -18,6 +18,7 @@ class ProjectSummaryResource extends JsonResource
         'invalid_output' => 'The AI returned a summary we could not use.',
         'max_tokens' => 'The AI returned a summary we could not use.',
         'unavailable' => 'The AI service was unavailable. Try again later.',
+        'budget_exceeded' => 'This organization\'s monthly AI budget is used up.',
     ];
 
     /**

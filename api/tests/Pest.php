@@ -3,6 +3,7 @@
 use App\Enums\DefaultRole;
 use App\Enums\Permission;
 use App\Enums\ProjectSummaryStatus;
+use App\Models\AiUsage;
 use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
@@ -193,4 +194,27 @@ function auditLogOf(Organization $organization): Collection
         ->where('organization_id', $organization->id)
         ->orderBy('id')
         ->get();
+}
+
+/**
+ * An ai_usage row written directly (the model has no factory). Pass created_at to
+ * place it in time; it defaults to now.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function createAiUsage(Organization $organization, array $attributes = []): AiUsage
+{
+    return inOrganization($organization, function () use ($attributes) {
+        $usage = new AiUsage;
+        $usage->forceFill(array_merge([
+            'feature' => 'project_summary',
+            'model' => 'fake-model',
+            'input_tokens' => 100,
+            'output_tokens' => 50,
+            'cost_usd' => '0.010000',
+            'status' => 'succeeded',
+        ], $attributes))->save();
+
+        return $usage;
+    });
 }

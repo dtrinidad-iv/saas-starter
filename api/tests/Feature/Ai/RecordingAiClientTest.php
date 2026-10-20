@@ -66,15 +66,52 @@ it('records failed calls, keeping tokens when the model answered, and rethrows',
         ->toBe(['status' => 'failed', 'error_code' => 'http_529', 'input_tokens' => 0, 'output_tokens' => 0]);
 });
 
-it('records an unknown model with no cost and logs a warning', function () {
+it('prices a dated model id as its base model', function () {
     Log::spy();
+    [, $acme] = userInOrganization();
+    // Haiku 5.5: $0.10 in / $0.50 out per 1M tokens.
+    $this->ai->push(aiResponse('claude-haiku-5-5-20261001', 1_000_000, 2_000_000));
+
+    inOrganization($acme, fn () => app(AiClient::class)->generate(usageRequest()));
+
+    expect(AiUsage::withoutGlobalScopes()->sole()->cost_usd)->toBe('1.100000');
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('never records an unpriced model as free, so the budget still counts it', function () {
+    Log::spy();
+    config(['ai.model' => 'claude-sonnet-5-5']);
+    [, $acme] = userInOrganization();
+    // Priced as the configured model, Sonnet 5.5: $2 in / $10 out per 1M tokens.
+    $this->ai->push(aiResponse('claude-mystery-1', 1_000_000, 1_000_000));
+
+    inOrganization($acme, fn () => app(AiClient::class)->generate(usageRequest()));
+
+    expect(AiUsage::withoutGlobalScopes()->sole()->cost_usd)->toBe('12.000000');
+    Log::shouldHaveReceived('warning')->once();
+});
+
+it('uses the highest configured price when the configured model is unpriced too', function () {
+    config(['ai.model' => 'claude-unlisted']);
+    [, $acme] = userInOrganization();
+    // Opus 5.5 is the most expensive: $4 in / $20 out per 1M tokens.
+    $this->ai->push(aiResponse('claude-mystery-1', 1_000_000, 1_000_000));
+
+    inOrganization($acme, fn () => app(AiClient::class)->generate(usageRequest()));
+
+    expect(AiUsage::withoutGlobalScopes()->sole()->cost_usd)->toBe('24.000000');
+});
+
+it('records no cost only when no prices are configured at all', function () {
+    Log::spy();
+    config(['ai.pricing' => []]);
     [, $acme] = userInOrganization();
     $this->ai->push(aiResponse('claude-mystery-1', 10, 10));
 
     inOrganization($acme, fn () => app(AiClient::class)->generate(usageRequest()));
 
     expect(AiUsage::withoutGlobalScopes()->sole()->cost_usd)->toBeNull();
-    Log::shouldHaveReceived('warning')->once();
+    Log::shouldHaveReceived('warning')->twice();
 });
 
 it('resolves the fake provider in tests, never the real one', function () {

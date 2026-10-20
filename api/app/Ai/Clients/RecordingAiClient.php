@@ -72,7 +72,7 @@ class RecordingAiClient implements AiClient
 
     private function cost(string $model, int $inputTokens, int $outputTokens): ?string
     {
-        $price = $this->pricing[$model] ?? null;
+        $price = $this->price($model);
 
         if ($price === null) {
             Log::warning("No AI pricing configured for model [{$model}]; ai_usage cost left empty.");
@@ -83,5 +83,33 @@ class RecordingAiClient implements AiClient
         $cost = ($inputTokens * $price['input'] + $outputTokens * $price['output']) / 1_000_000;
 
         return number_format($cost, 6, '.', '');
+    }
+
+    /**
+     * The model's price. The budget sums cost_usd, so an unpriced call must not
+     * count as free: a dated id ("claude-haiku-5-5-20261001") uses its base model's
+     * price, and anything else the configured model's (or the highest configured).
+     *
+     * @return array{input: float, output: float}|null
+     */
+    private function price(string $model): ?array
+    {
+        if (isset($this->pricing[$model])) {
+            return $this->pricing[$model];
+        }
+
+        $base = collect($this->pricing)
+            ->filter(fn (array $price, string $priced) => str_starts_with($model, $priced.'-'))
+            ->sortByDesc(fn (array $price, string $priced) => strlen($priced))
+            ->first();
+
+        if ($base !== null) {
+            return $base;
+        }
+
+        Log::warning("No AI pricing configured for model [{$model}]; priced as [{$this->model}] (or the highest price).");
+
+        return $this->pricing[$this->model]
+            ?? collect($this->pricing)->sortByDesc(fn (array $price) => $price['input'] + $price['output'])->first();
     }
 }

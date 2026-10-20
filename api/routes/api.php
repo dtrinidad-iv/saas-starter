@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AiUsageController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\InvitationController;
@@ -43,6 +44,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
         Route::get('/audit-log/actions', [AuditLogController::class, 'actions']);
+
+        Route::get('/ai-usage', [AiUsageController::class, 'index']);
+        Route::put('/ai-budget', [AiUsageController::class, 'updateBudget'])->middleware('throttle:20,1');
 
         Route::apiResource('projects', ProjectController::class)->whereNumber('project');
 

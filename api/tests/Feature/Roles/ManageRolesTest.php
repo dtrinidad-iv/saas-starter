@@ -22,7 +22,7 @@ it('gives new organizations the default roles', function () {
         ->assertJsonPath('data.0.members_count', 1)
         ->assertJsonPath('data.1.name', 'Admin')
         ->assertJsonPath('data.2.name', 'Member')
-        ->assertJsonPath('data.2.permissions', ['projects.view', 'projects.create', 'projects.update_own']);
+        ->assertJsonPath('data.2.permissions', ['projects.view', 'projects.create', 'projects.update_own', 'ai.use']);
 });
 
 it('lists roles for every member', function (DefaultRole $role) {

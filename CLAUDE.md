@@ -34,11 +34,11 @@
 
 ## AI layer conventions
 - All AI calls happen in Laravel. Never expose provider keys to Nuxt.
-- Code against the `AiClient` interface (`app/Ai`). Provider and model come from `config/ai.php` and `.env`. The container wraps the provider in `RecordingAiClient`, so `ai_usage` is written for you.
+- Code against the `AiClient` interface (`app/Ai`). Provider and model come from `config/ai.php` and `.env`. The container wraps the provider in `RecordingAiClient`, so `ai_usage` is written for you, and in `BudgetedAiClient`, which refuses calls once the organization's monthly budget is used up (`AiBudgetExceeded`: 402 in requests, a failed result in jobs). Check `AiBudget` before starting AI work so nothing is created that can't run.
 - Slow work (summaries, bulk generation) runs as queued jobs with retries, backoff, and timeouts. Tenant work extends `App\Jobs\OrganizationJob` (sets the current organization); AI jobs add `RateLimited('ai')`.
 - Interactive chat uses SSE streaming. Everything else is queued.
 - Record every call in `ai_usage` (organization_id, user_id, feature, model, tokens in/out, cost).
-- Rate limit AI endpoints per organization.
+- Rate limit AI endpoints per organization. User-triggered AI needs the `ai.use` permission in its policy.
 - Prompts live in dedicated classes or files under `app/Ai/Prompts`, not inline strings.
 - Ask for structured JSON output and validate it before saving.
 - AI output is saved as a draft that a user approves. It must never trigger destructive actions on its own.

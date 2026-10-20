@@ -3,7 +3,10 @@
 namespace App\Listeners;
 
 use App\Actions\ProjectSummaries\RequestProjectSummary;
+use App\Ai\Exceptions\AiBudgetExceeded;
+use App\Enums\Permission;
 use App\Events\ProjectCreated;
+use App\Support\CurrentOrganization;
 use Illuminate\Support\Facades\RateLimiter;
 
 /**
@@ -11,13 +14,21 @@ use Illuminate\Support\Facades\RateLimiter;
  */
 class QueueProjectSummary
 {
-    public function __construct(private readonly RequestProjectSummary $requestSummary) {}
+    public function __construct(
+        private readonly RequestProjectSummary $requestSummary,
+        private readonly CurrentOrganization $currentOrganization,
+    ) {}
 
     public function handle(ProjectCreated $event): void
     {
         $project = $event->project;
 
         if (blank($project->description)) {
+            return;
+        }
+
+        // Only for creators allowed to use AI.
+        if (! $this->currentOrganization->can(Permission::AiUse)) {
             return;
         }
 
@@ -30,6 +41,11 @@ class QueueProjectSummary
         }
         RateLimiter::hit($key, 60);
 
-        $this->requestSummary->handle($project, $project->creator);
+        // Over the monthly budget the project is still created, just without a summary.
+        try {
+            $this->requestSummary->handle($project, $project->creator);
+        } catch (AiBudgetExceeded) {
+            return;
+        }
     }
 }

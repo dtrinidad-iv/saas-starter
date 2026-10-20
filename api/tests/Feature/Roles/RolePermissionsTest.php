@@ -32,7 +32,7 @@ it('does not let roles be managed without roles.manage', function (DefaultRole $
     $this->patchJson("/api/roles/{$member->id}", ['name' => 'Member', 'permissions' => []])->assertForbidden();
     $this->deleteJson("/api/roles/{$member->id}")->assertForbidden();
 
-    expect($member->fresh()->permissions)->toHaveCount(3);
+    expect($member->fresh()->permissions)->toHaveCount(4);
 })->with([DefaultRole::Admin, DefaultRole::Member]);
 
 it('lets a role manager grant only permissions they have', function () {
@@ -43,7 +43,7 @@ it('lets a role manager grant only permissions they have', function () {
 });
 
 it('stops a role manager from editing roles that can do more than they can', function () {
-    Sanctum::actingAs(roleManager([Permission::ProjectsView, Permission::ProjectsCreate, Permission::ProjectsUpdateOwn]));
+    Sanctum::actingAs(roleManager([Permission::ProjectsView, Permission::ProjectsCreate, Permission::ProjectsUpdateOwn, Permission::AiUse]));
     $admin = roleOf($this->acme, DefaultRole::Admin);
     $member = roleOf($this->acme, DefaultRole::Member);
 

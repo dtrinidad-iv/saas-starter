@@ -18,6 +18,9 @@ enum Permission: string
     case MembersRemove = 'members.remove';
     case RolesManage = 'roles.manage';
     case AuditLogView = 'audit_log.view';
+    case AiUse = 'ai.use';
+    case AiUsageView = 'ai_usage.view';
+    case AiBudgetManage = 'ai_budget.manage';
 
     /**
      * Unique and in catalogue order, so stored roles compare and display consistently.
@@ -40,6 +43,7 @@ enum Permission: string
             self::MembersInvite, self::MembersChangeRole, self::MembersRemove => 'Members',
             self::RolesManage => 'Roles',
             self::AuditLogView => 'Organization',
+            self::AiUse, self::AiUsageView, self::AiBudgetManage => 'AI',
         };
     }
 
@@ -56,6 +60,9 @@ enum Permission: string
             self::MembersRemove => 'Remove members',
             self::RolesManage => 'Create, edit and delete roles',
             self::AuditLogView => 'View the audit log',
+            self::AiUse => 'Use AI features (summaries, writing help, chat)',
+            self::AiUsageView => 'View AI usage and cost',
+            self::AiBudgetManage => 'Change the monthly AI budget',
         };
     }
 }

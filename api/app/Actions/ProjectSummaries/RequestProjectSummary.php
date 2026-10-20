@@ -3,6 +3,8 @@
 namespace App\Actions\ProjectSummaries;
 
 use App\Actions\Audit\RecordAudit;
+use App\Ai\AiBudget;
+use App\Ai\Exceptions\AiBudgetExceeded;
 use App\Enums\AuditAction;
 use App\Enums\ProjectSummaryStatus;
 use App\Jobs\GenerateProjectSummary;
@@ -19,11 +21,16 @@ class RequestProjectSummary
      */
     public const STALE_AFTER_MINUTES = 15;
 
-    public function __construct(private readonly RecordAudit $recordAudit) {}
+    public function __construct(
+        private readonly RecordAudit $recordAudit,
+        private readonly AiBudget $budget,
+    ) {}
 
     /**
      * Queue a new summary for a project in the current organization, or return
      * the one already being generated. Open drafts are retired by the new request.
+     *
+     * @throws AiBudgetExceeded when a new summary is needed and the monthly budget is used up (nothing changes)
      */
     public function handle(Project $project, ?User $requester): ProjectSummary
     {
@@ -37,6 +44,9 @@ class RequestProjectSummary
             if ($pending !== null && $pending->created_at->gt(now()->subMinutes(self::STALE_AFTER_MINUTES))) {
                 return [$pending, false];
             }
+
+            // Only a new summary costs anything. Throwing here rolls back nothing yet changed.
+            $this->budget->ensureAvailable();
 
             $pending?->forceFill(['status' => ProjectSummaryStatus::Failed, 'error' => 'unavailable'])->save();
 

@@ -33,6 +33,14 @@ return [
     // AI calls (and AI requests from the UI) per organization per minute.
     'rate_limit_per_minute' => (int) env('AI_RATE_LIMIT_PER_MINUTE', 5),
 
+    /*
+    | Monthly AI budget per organization in USD (summed from ai_usage.cost_usd
+    | since the start of the UTC month). Organizations can override it
+    | (organizations.ai_monthly_budget_usd); 0 turns AI off.
+    */
+    // Blank falls back to 5 too, so an empty key doesn't turn AI off by accident ("0" still does).
+    'monthly_budget_usd' => (float) (filled(env('AI_MONTHLY_BUDGET_USD')) ? env('AI_MONTHLY_BUDGET_USD') : 5),
+
     'providers' => [
         'anthropic' => [
             'api_key' => env('ANTHROPIC_API_KEY'),

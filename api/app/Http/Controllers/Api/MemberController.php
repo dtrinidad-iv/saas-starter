@@ -16,44 +16,44 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * Members of the current organization. A {member} outside it is a 404.
+ * CurrentOrganization is injected per action, not in the constructor: the router
+ * reuses controller instances in long-lived processes (Octane, tests).
  */
 class MemberController extends Controller
 {
-    public function __construct(private readonly CurrentOrganization $currentOrganization) {}
-
-    public function index(): AnonymousResourceCollection
+    public function index(CurrentOrganization $currentOrganization): AnonymousResourceCollection
     {
         Gate::authorize('viewAny', Membership::class);
 
-        $members = $this->currentOrganization->get()->members()->orderBy('name')->get();
+        $members = $currentOrganization->get()->members()->orderBy('name')->get();
         Membership::loadRoles($members);
 
         return MemberResource::collection($members);
     }
 
-    public function update(UpdateMemberRequest $request, int $member, ChangeMemberRole $action): MemberResource
+    public function update(UpdateMemberRequest $request, int $member, ChangeMemberRole $action, CurrentOrganization $currentOrganization): MemberResource
     {
-        $target = $this->findMember($member);
+        $target = $this->findMember($currentOrganization, $member);
         $role = $request->role();
 
         Gate::authorize('update', [$target->membership, $role]);
 
-        return new MemberResource($action->handle($this->currentOrganization->get(), $target, $role));
+        return new MemberResource($action->handle($currentOrganization->get(), $target, $role));
     }
 
-    public function destroy(int $member, RemoveMember $action): Response
+    public function destroy(int $member, RemoveMember $action, CurrentOrganization $currentOrganization): Response
     {
-        $target = $this->findMember($member);
+        $target = $this->findMember($currentOrganization, $member);
 
         Gate::authorize('delete', $target->membership);
 
-        $action->handle($this->currentOrganization->get(), $target);
+        $action->handle($currentOrganization->get(), $target);
 
         return response()->noContent();
     }
 
-    private function findMember(int $id): User
+    private function findMember(CurrentOrganization $currentOrganization, int $id): User
     {
-        return $this->currentOrganization->get()->members()->findOrFail($id);
+        return $currentOrganization->get()->members()->findOrFail($id);
     }
 }
