@@ -25,6 +25,9 @@ const links = computed<NavigationMenuItem[]>(() => [
         ...(can('audit_log.view')
           ? [{ label: 'Audit log', icon: 'i-lucide-scroll-text', to: '/audit-log', active: route.path.startsWith('/audit-log') }]
           : []),
+        ...(can('ai_usage.view')
+          ? [{ label: 'AI usage', icon: 'i-lucide-sparkles', to: '/ai-usage', active: route.path.startsWith('/ai-usage') }]
+          : []),
       ]
     : []),
 ])

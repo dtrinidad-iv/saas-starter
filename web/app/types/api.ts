@@ -10,6 +10,9 @@ export type Permission
     | 'members.remove'
     | 'roles.manage'
     | 'audit_log.view'
+    | 'ai.use'
+    | 'ai_usage.view'
+    | 'ai_budget.manage'
 
 /** An entry of GET /api/permissions. */
 export interface PermissionInfo {
@@ -164,4 +167,32 @@ export interface AuditLogEntry {
   /** Only sent to owners. */
   ip_address?: string | null
   created_at: string
+}
+
+/** Calls, tokens and cost for one slice of GET /api/ai-usage. */
+export interface AiUsageTotals {
+  calls: number
+  failed: number
+  input_tokens: number
+  output_tokens: number
+  cost_usd: number
+}
+
+/** The current month's AI budget. limit 0 means AI is turned off. */
+export interface AiBudget {
+  limit_usd: number
+  is_default: boolean
+  spent_usd: number
+  remaining_usd: number
+  can_manage: boolean
+}
+
+/** GET /api/ai-usage?month=YYYY-MM */
+export interface AiUsageReport {
+  month: string
+  totals: AiUsageTotals
+  by_feature: (AiUsageTotals & { feature: string })[]
+  by_user: (AiUsageTotals & { user: { id: number, name: string } | null })[]
+  by_day: (AiUsageTotals & { day: string })[]
+  budget: AiBudget
 }

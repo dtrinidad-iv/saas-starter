@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { ProjectSummary } from '~/types/api'
 
-// canGenerate: the project's can.update (the API uses the same rule), needed
-// before any summary exists.
+// canGenerate: the project's can.update, needed before any summary exists. The API
+// also requires ai.use (ProjectSummaryPolicy::create), checked here too.
 const props = defineProps<{ projectId: number, canGenerate: boolean }>()
 
 const api = useApi()
+const { can } = useOrganizationPermissions()
 const toast = useToast()
 
 const POLL_INTERVAL_MS = 3000
@@ -114,7 +115,7 @@ const showsText = computed(() => summary.value?.status === 'draft' || summary.va
 const previousApproved = computed(() => approved.value && approved.value.id !== summary.value?.id ? approved.value : null)
 // Regenerate hides while a draft waits for review, and while generating (unless it's taking too long).
 const showGenerate = computed(() => !loadError.value
-  && (summary.value ? summary.value.can.regenerate : props.canGenerate)
+  && (summary.value ? summary.value.can.regenerate : props.canGenerate && can('ai.use'))
   && summary.value?.status !== 'draft'
   && (summary.value?.status !== 'pending' || stillWorking.value))
 </script>
