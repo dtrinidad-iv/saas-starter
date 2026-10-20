@@ -58,3 +58,25 @@ export interface InvitationPreview {
   role: OrganizationRole
   expires_at: string
 }
+
+export interface Project {
+  id: number
+  name: string
+  description: string | null
+  creator: { id: number, name: string } | null
+  created_at: string
+  updated_at: string
+  /** What the current user may do, decided by the API. */
+  can: { update: boolean, delete: boolean }
+}
+
+export interface ProjectPayload {
+  name: string
+  description: string | null
+}
+
+/** Laravel paginated resource collection. */
+export interface Paginated<T> {
+  data: T[]
+  meta: { current_page: number, last_page: number, per_page: number, total: number }
+}

@@ -28,13 +28,20 @@ const userMenu = computed<DropdownMenuItem[][]>(() => [
 
           <template v-if="auth.user">
             <OrgSwitcher />
-            <UButton
-              v-if="auth.user.current_organization"
-              to="/members"
-              label="Members"
-              color="neutral"
-              variant="ghost"
-            />
+            <template v-if="auth.user.current_organization">
+              <UButton
+                to="/projects"
+                label="Projects"
+                color="neutral"
+                variant="ghost"
+              />
+              <UButton
+                to="/members"
+                label="Members"
+                color="neutral"
+                variant="ghost"
+              />
+            </template>
           </template>
         </div>
 

@@ -1,0 +1,197 @@
+<script setup lang="ts">
+import type { Project, ProjectPayload } from '~/types/api'
+
+definePageMeta({ middleware: 'auth' })
+
+const route = useRoute()
+const api = useApi()
+const organizations = useOrganizationStore()
+const toast = useToast()
+
+const id = computed(() => Number(route.params.id))
+
+// Errors come back as data so the page can show "not found" (404 also covers
+// another organization's project).
+const { data: result, refresh } = await useAsyncData(`project:${id.value}`, async () => {
+  try {
+    const response = await api<{ data: Project }>(`/api/projects/${id.value}`)
+    return { ok: true as const, project: response.data }
+  }
+  catch (error) {
+    return { ok: false as const, status: isFetchError(error) ? error.statusCode ?? 0 : 0, message: errorMessage(error) }
+  }
+})
+
+const project = computed(() => (result.value?.ok ? result.value.project : null))
+useSeoMeta({ title: () => project.value?.name ?? 'Project' })
+
+// This project belongs to the organization we were in; after switching, go back to the list.
+watch(() => organizations.current?.id, (now, before) => {
+  if (before !== undefined && now !== before) {
+    navigateTo('/projects')
+  }
+})
+
+const formatDate = (value: string) =>
+  new Date(value).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })
+
+// Edit
+const editing = ref(false)
+const saving = ref(false)
+const editForm = useTemplateRef<{ setErrors: (errors: ReturnType<typeof toFormErrors>) => void }>('editForm')
+
+async function save(payload: ProjectPayload) {
+  saving.value = true
+  try {
+    await api(`/api/projects/${id.value}`, { method: 'PATCH', body: payload })
+    editing.value = false
+    toast.add({ title: 'Project saved', color: 'success' })
+    await refresh()
+  }
+  catch (error) {
+    const fieldErrors = toFormErrors(error)
+    if (fieldErrors.length) {
+      editForm.value?.setErrors(fieldErrors)
+    }
+    else {
+      toast.add({ title: 'Could not save project', description: errorMessage(error), color: 'error' })
+    }
+  }
+  finally {
+    saving.value = false
+  }
+}
+
+// Delete
+const deleteOpen = ref(false)
+const deleting = ref(false)
+
+async function destroy() {
+  deleting.value = true
+  try {
+    await api(`/api/projects/${id.value}`, { method: 'DELETE' })
+    toast.add({ title: `Deleted ${project.value?.name}`, color: 'success' })
+    await navigateTo('/projects')
+  }
+  catch (error) {
+    toast.add({ title: 'Could not delete project', description: errorMessage(error), color: 'error' })
+  }
+  finally {
+    deleting.value = false
+    deleteOpen.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="space-y-6">
+    <UButton
+      to="/projects"
+      label="All projects"
+      icon="i-lucide-arrow-left"
+      color="neutral"
+      variant="ghost"
+      class="-ml-2"
+    />
+
+    <template v-if="project">
+      <UCard v-if="editing">
+        <template #header>
+          <h1 class="text-xl font-semibold">
+            Edit project
+          </h1>
+        </template>
+        <ProjectForm
+          ref="editForm"
+          :initial="project"
+          submit-label="Save"
+          :loading="saving"
+          @submit="save"
+          @cancel="editing = false"
+        />
+      </UCard>
+
+      <template v-else>
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-semibold">
+              {{ project.name }}
+            </h1>
+            <p class="text-sm text-muted">
+              Created by {{ project.creator?.name ?? 'a former member' }} · updated {{ formatDate(project.updated_at) }}
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <UButton
+              v-if="project.can.update"
+              label="Edit"
+              icon="i-lucide-pencil"
+              color="neutral"
+              variant="outline"
+              @click="editing = true"
+            />
+            <UButton
+              v-if="project.can.delete"
+              label="Delete"
+              icon="i-lucide-trash-2"
+              color="error"
+              variant="outline"
+              @click="deleteOpen = true"
+            />
+          </div>
+        </div>
+
+        <UCard>
+          <p
+            v-if="project.description"
+            class="whitespace-pre-line text-sm"
+          >
+            {{ project.description }}
+          </p>
+          <p
+            v-else
+            class="text-sm text-muted"
+          >
+            No description.
+          </p>
+        </UCard>
+      </template>
+
+      <UModal
+        v-model:open="deleteOpen"
+        title="Delete project?"
+      >
+        <template #body>
+          <p class="text-sm">
+            <strong>{{ project.name }}</strong> will be deleted for everyone in {{ organizations.current?.name }}. This can't be undone.
+          </p>
+          <div class="mt-4 flex justify-end gap-2">
+            <UButton
+              label="Cancel"
+              color="neutral"
+              variant="ghost"
+              @click="deleteOpen = false"
+            />
+            <UButton
+              label="Delete"
+              color="error"
+              :loading="deleting"
+              @click="destroy"
+            />
+          </div>
+        </template>
+      </UModal>
+    </template>
+
+    <UCard v-else>
+      <h1 class="text-xl font-semibold">
+        {{ result && !result.ok && result.status === 404 ? 'Project not found' : 'Could not load project' }}
+      </h1>
+      <p class="mt-2 text-sm text-muted">
+        {{ result && !result.ok && result.status === 404
+          ? 'It may have been deleted, or it belongs to another organization.'
+          : (result && !result.ok ? result.message : '') }}
+      </p>
+    </UCard>
+  </div>
+</template>
