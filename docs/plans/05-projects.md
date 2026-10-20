@@ -2,7 +2,6 @@
 
 **Status:** Done
 **Commits:** `a9e575e` (api), `881c5fc` (web)
-**Commits:** —
 
 ## Goal
 Members can create, browse, edit and delete projects in their current organization. This sets the pattern for every later tenant-owned feature: `BelongsToOrganization` model, policy by role, scoped route binding, server-computed permissions in the API response, cross-org tests, and a domain event.
