@@ -17,3 +17,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 07 | [Projects UI fixes](07-projects-ui-fixes.md) | Done |
 | 08 | [Project README and docs rule](08-project-readme.md) | Done |
 | 09 | [AI layer and project summaries](09-ai-layer.md) | Done |
+| 10 | [Custom roles and permissions](10-custom-roles.md) | Done |
