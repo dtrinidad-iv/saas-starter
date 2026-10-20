@@ -57,7 +57,7 @@
   - `/e2e-smoke` (real servers on :8011/:3011)
   - `/ship-plan` (commit, push and mark the plan Done; only you can start it)
 - Subagents:
-  - Read-only reviewers: `code-reviewer`, `security-auditor`, `tenant-isolation-reviewer`, `database-reviewer`, and `ui-reviewer` (browser).
+  - Read-only reviewers: `code-reviewer`, `security-auditor`, `tenant-isolation-reviewer`, `database-reviewer`, and `ui-reviewer` (browser; runs on Sonnet in quick mode, checking only the items listed, unless asked for a "full sweep").
   - `laravel-test-writer` can edit only `api/tests/`, enforced by a hook.
 - Before reporting a change as done, run the reviewers that fit, in parallel:
   - always code, security and tenant isolation;

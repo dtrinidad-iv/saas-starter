@@ -45,6 +45,7 @@ wait_for() {
 }
 
 # Stops whatever php/node process listens on our ports ($! points at wrappers, not the servers).
+# The ( ... & ) wrappers get /dev/null as stdio so a caller piping our output (| tail) isn't held open.
 stop() {
   local port pid
   for port in $API_PORT $WEB_PORT; do
@@ -74,9 +75,9 @@ start() {
   fi
 
   (cd "$root/api/public" && FRONTEND_URL="http://localhost:$WEB_PORT" nohup "$php" -S "127.0.0.1:$API_PORT" \
-    ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php >"$state/api.log" 2>&1 &)
+    ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php >"$state/api.log" 2>&1 &) </dev/null >/dev/null 2>&1
   (cd "$root/web" && PORT=$WEB_PORT NUXT_PUBLIC_API_BASE="http://localhost:$API_PORT" nohup node .output/server/index.mjs \
-    >"$state/web.log" 2>&1 &)
+    >"$state/web.log" 2>&1 &) </dev/null >/dev/null 2>&1
 
   wait_for "http://127.0.0.1:$API_PORT/up" && wait_for "http://127.0.0.1:$WEB_PORT/login" || { stop; exit 1; }
   echo "API  http://localhost:$API_PORT   (log: $state/api.log)"
