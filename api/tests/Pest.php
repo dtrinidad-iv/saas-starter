@@ -98,3 +98,23 @@ function createInvitation(Organization $organization, string $email, Organizatio
 
     return [$invitation, $token];
 }
+
+/**
+ * Run code acting in an organization (no logged-in user needed), e.g. to create
+ * tenant-owned rows with factories. Returns what the callback returns.
+ *
+ * @template T
+ *
+ * @param  Closure(): T  $callback
+ * @return T
+ */
+function inOrganization(Organization $organization, Closure $callback): mixed
+{
+    app(CurrentOrganization::class)->set($organization);
+
+    try {
+        return $callback();
+    } finally {
+        app(CurrentOrganization::class)->forget();
+    }
+}

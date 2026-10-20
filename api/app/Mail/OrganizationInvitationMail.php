@@ -10,8 +10,10 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 /**
- * Takes plain values, not the invitation model: a queued job has no current
- * organization, so re-loading a BelongsToOrganization model there would find nothing.
+ * Takes plain values, so the queued email renders exactly what was true when the
+ * invitation was sent. (Passing the model would also work: queued jobs restore
+ * models without global scopes. But other org-scoped queries inside a job see
+ * nothing until it calls CurrentOrganization::set().)
  */
 class OrganizationInvitationMail extends Mailable implements ShouldQueue
 {

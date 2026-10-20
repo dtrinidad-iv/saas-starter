@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\JoinController;
 use App\Http\Controllers\Api\MemberController;
 use App\Http\Controllers\Api\OrganizationController;
+use App\Http\Controllers\Api\ProjectController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:6,1');
@@ -32,5 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/invitations', [InvitationController::class, 'index']);
         Route::post('/invitations', [InvitationController::class, 'store'])->middleware('throttle:20,1');
         Route::delete('/invitations/{invitation}', [InvitationController::class, 'destroy'])->whereNumber('invitation');
+
+        Route::apiResource('projects', ProjectController::class)->whereNumber('project');
     });
 });
