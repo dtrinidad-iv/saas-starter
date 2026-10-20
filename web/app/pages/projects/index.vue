@@ -6,39 +6,88 @@ definePageMeta({ middleware: 'auth' })
 useSeoMeta({ title: 'Projects' })
 
 const api = useApi()
+const route = useRoute()
+const router = useRouter()
 const organizations = useOrganizationStore()
 const toast = useToast()
 
-const page = ref(1)
-const search = ref('')
-const debouncedSearch = ref('')
+// Search and page live in the URL (?search=&page=) so reload and Back keep them.
+const queryPage = () => Math.max(1, Number.parseInt(String(route.query.page ?? ''), 10) || 1)
+const querySearch = () => (typeof route.query.search === 'string' ? route.query.search.trim() : '')
+
+const page = ref(queryPage())
+const search = ref(querySearch())
+const debouncedSearch = ref(search.value)
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 watch(search, (value) => {
   clearTimeout(searchTimer)
+  // Already applied (e.g. set from the URL below): keep the page.
+  if (value.trim() === debouncedSearch.value) {
+    return
+  }
   searchTimer = setTimeout(() => {
     debouncedSearch.value = value.trim()
     page.value = 1
   }, 300)
 })
 
-// A different organization has different projects: start from page 1.
+// Pin the path: while the next page loads, this (leaving) page is still mounted and a
+// late update must not rewrite the new page's URL.
+watch([page, debouncedSearch], ([p, s]) => {
+  router.replace({ path: route.path, query: { ...route.query, page: p > 1 ? String(p) : undefined, search: s || undefined } })
+})
+onBeforeUnmount(() => clearTimeout(searchTimer))
+
+// The URL changed from outside (Back/Forward, or the Projects link): follow it.
+watch(() => route.query, () => {
+  const [p, s] = [queryPage(), querySearch()]
+  if (p !== page.value || s !== debouncedSearch.value) {
+    clearTimeout(searchTimer)
+    search.value = s
+    debouncedSearch.value = s
+    page.value = p
+  }
+})
+
+// A different organization has different projects: start over.
 watch(() => organizations.current?.id, () => {
+  clearTimeout(searchTimer)
+  search.value = ''
+  debouncedSearch.value = ''
   page.value = 1
 })
 
 // Also reloaded by refreshNuxtData() when switching organizations.
 const { data: projects, status, error, refresh } = await useAsyncData(
   'projects',
-  () => api<Paginated<Project>>('/api/projects', {
-    query: { page: page.value, search: debouncedSearch.value || undefined },
-  }),
+  async () => {
+    const fetchPage = (p: number) => api<Paginated<Project>>('/api/projects', {
+      query: { page: p, search: debouncedSearch.value || undefined },
+    })
+    const result = await fetchPage(page.value)
+    // A page past the end (old link, or the last item on the last page was deleted):
+    // load the last page instead. Done here so server and browser render the same data.
+    if (result.meta.total > 0 && page.value > result.meta.last_page) {
+      page.value = result.meta.last_page
+      return fetchPage(result.meta.last_page)
+    }
+    return result
+  },
   { watch: [page, debouncedSearch] },
 )
 
+// After hydration the browser still has the URL's page; adopt the page the server
+// actually loaded (this also fixes the URL).
+if (projects.value && projects.value.meta.current_page !== page.value) {
+  page.value = projects.value.meta.current_page
+}
+
+// On phones only the Project column shows; creator and date move under the name.
+const wideOnly = { class: { th: 'hidden sm:table-cell', td: 'hidden sm:table-cell' } }
 const columns: TableColumn<Project>[] = [
   { accessorKey: 'name', header: 'Project' },
-  { accessorKey: 'creator', header: 'Created by' },
-  { accessorKey: 'updated_at', header: 'Updated' },
+  { accessorKey: 'creator', header: 'Created by', meta: wideOnly },
+  { accessorKey: 'updated_at', header: 'Updated', meta: wideOnly },
 ]
 
 const formatDate = (value: string) =>
@@ -83,16 +132,33 @@ async function create(payload: ProjectPayload) {
           In {{ organizations.current?.name ?? 'this organization' }}.
         </p>
       </div>
-      <UButton
-        label="New project"
-        icon="i-lucide-plus"
-        @click="createOpen = true"
-      />
+      <!-- The button is the modal's trigger, so focus returns to it when the modal closes. -->
+      <UModal
+        v-model:open="createOpen"
+        title="New project"
+      >
+        <UButton
+          label="New project"
+          icon="i-lucide-plus"
+        />
+
+        <template #body>
+          <ProjectForm
+            ref="createForm"
+            submit-label="Create project"
+            :loading="creating"
+            @submit="create"
+            @cancel="createOpen = false"
+          />
+        </template>
+      </UModal>
     </div>
 
     <UInput
       v-model="search"
       placeholder="Search projects"
+      aria-label="Search projects"
+      type="search"
       icon="i-lucide-search"
       class="w-full sm:w-72"
     />
@@ -124,21 +190,23 @@ async function create(payload: ProjectPayload) {
         :columns="columns"
         :loading="status === 'pending'"
       >
+        <!-- Only the name is the link, so its accessible name is just the project name. -->
         <template #name-cell="{ row }">
           <NuxtLink
             :to="`/projects/${row.original.id}`"
-            class="block"
+            class="font-medium hover:underline"
           >
-            <p class="font-medium hover:underline">
-              {{ row.original.name }}
-            </p>
-            <p
-              v-if="row.original.description"
-              class="text-muted line-clamp-1 max-w-md text-xs"
-            >
-              {{ row.original.description }}
-            </p>
+            {{ row.original.name }}
           </NuxtLink>
+          <p
+            v-if="row.original.description"
+            class="text-muted line-clamp-1 max-w-md text-xs"
+          >
+            {{ row.original.description }}
+          </p>
+          <p class="text-muted text-xs sm:hidden">
+            by {{ row.original.creator?.name ?? 'Former member' }} · {{ formatDate(row.original.updated_at) }}
+          </p>
         </template>
 
         <template #creator-cell="{ row }">
@@ -167,20 +235,5 @@ async function create(payload: ProjectPayload) {
         :items-per-page="projects.meta.per_page"
       />
     </div>
-
-    <UModal
-      v-model:open="createOpen"
-      title="New project"
-    >
-      <template #body>
-        <ProjectForm
-          ref="createForm"
-          submit-label="Create project"
-          :loading="creating"
-          @submit="create"
-          @cancel="createOpen = false"
-        />
-      </template>
-    </UModal>
   </div>
 </template>

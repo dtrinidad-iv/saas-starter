@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ComponentPublicInstance } from 'vue'
 import type { Project, ProjectPayload } from '~/types/api'
 
 definePageMeta({ middleware: 'auth' })
@@ -9,10 +10,14 @@ const organizations = useOrganizationStore()
 const toast = useToast()
 
 const id = computed(() => Number(route.params.id))
+const validId = computed(() => /^\d+$/.test(String(route.params.id)))
 
 // Errors come back as data so the page can show "not found" (404 also covers
 // another organization's project).
-const { data: result, refresh } = await useAsyncData(`project:${id.value}`, async () => {
+const { data: result, refresh } = await useAsyncData(`project:${route.params.id}`, async () => {
+  if (!validId.value) {
+    return { ok: false as const, status: 404, message: '' }
+  }
   try {
     const response = await api<{ data: Project }>(`/api/projects/${id.value}`)
     return { ok: true as const, project: response.data }
@@ -23,7 +28,14 @@ const { data: result, refresh } = await useAsyncData(`project:${id.value}`, asyn
 })
 
 const project = computed(() => (result.value?.ok ? result.value.project : null))
-useSeoMeta({ title: () => project.value?.name ?? 'Project' })
+const notFound = computed(() => result.value?.ok === false && result.value.status === 404)
+useSeoMeta({ title: () => project.value?.name ?? (notFound.value ? 'Project not found' : 'Project') })
+
+// A server-rendered "not found" page should also be an HTTP 404.
+const requestEvent = useRequestEvent()
+if (requestEvent && notFound.value) {
+  setResponseStatus(requestEvent, 404)
+}
 
 // This project belongs to the organization we were in; after switching, go back to the list.
 watch(() => organizations.current?.id, (now, before) => {
@@ -39,14 +51,22 @@ const formatDate = (value: string) =>
 const editing = ref(false)
 const saving = ref(false)
 const editForm = useTemplateRef<{ setErrors: (errors: ReturnType<typeof toFormErrors>) => void }>('editForm')
+const editButton = useTemplateRef<ComponentPublicInstance>('editButton')
+
+// The form that had focus disappears; put keyboard focus back on Edit.
+async function closeEdit() {
+  editing.value = false
+  await nextTick()
+  editButton.value?.$el?.focus?.()
+}
 
 async function save(payload: ProjectPayload) {
   saving.value = true
   try {
     await api(`/api/projects/${id.value}`, { method: 'PATCH', body: payload })
-    editing.value = false
     toast.add({ title: 'Project saved', color: 'success' })
     await refresh()
+    await closeEdit()
   }
   catch (error) {
     const fieldErrors = toFormErrors(error)
@@ -105,9 +125,10 @@ async function destroy() {
           ref="editForm"
           :initial="project"
           submit-label="Save"
+          focus-on-mount
           :loading="saving"
           @submit="save"
-          @cancel="editing = false"
+          @cancel="closeEdit"
         />
       </UCard>
 
@@ -124,6 +145,7 @@ async function destroy() {
           <div class="flex gap-2">
             <UButton
               v-if="project.can.update"
+              ref="editButton"
               label="Edit"
               icon="i-lucide-pencil"
               color="neutral"
@@ -157,9 +179,12 @@ async function destroy() {
         </UCard>
       </template>
 
+      <!-- Can't be dismissed while the delete is in flight. -->
       <UModal
         v-model:open="deleteOpen"
         title="Delete project?"
+        :dismissible="!deleting"
+        :close="{ disabled: deleting }"
       >
         <template #body>
           <p class="text-sm">
@@ -170,6 +195,7 @@ async function destroy() {
               label="Cancel"
               color="neutral"
               variant="ghost"
+              :disabled="deleting"
               @click="deleteOpen = false"
             />
             <UButton
@@ -185,10 +211,10 @@ async function destroy() {
 
     <UCard v-else>
       <h1 class="text-xl font-semibold">
-        {{ result && !result.ok && result.status === 404 ? 'Project not found' : 'Could not load project' }}
+        {{ notFound ? 'Project not found' : 'Could not load project' }}
       </h1>
       <p class="mt-2 text-sm text-muted">
-        {{ result && !result.ok && result.status === 404
+        {{ notFound
           ? 'It may have been deleted, or it belongs to another organization.'
           : (result && !result.ok ? result.message : '') }}
       </p>

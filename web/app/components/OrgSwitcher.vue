@@ -90,6 +90,8 @@ async function onCreate(event: FormSubmitEvent<{ name: string }>) {
         :label="organizations.current?.name ?? 'No organization'"
         :loading="switching"
         trailing-icon="i-lucide-chevrons-up-down"
+        class="max-w-56"
+        :ui="{ label: 'truncate' }"
       />
     </UDropdownMenu>
 

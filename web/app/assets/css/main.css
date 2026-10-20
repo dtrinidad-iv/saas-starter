@@ -1,2 +1,22 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+/*
+ * Nuxt UI draws focus outlines at 25% opacity, which is too faint to see (WCAG asks for 3:1).
+ * Keep its width, make the colour solid. The primary green is under 3:1 on white, so use the
+ * inverted border colour (neutral-900 in light mode, white in dark mode).
+ */
+:is(button, a, [role="button"], [role="menuitem"], [role="tab"]):focus-visible {
+  outline-color: var(--ui-border-inverted);
+}
+
+/* UNavigationMenu draws its focus ring on the link's ::before. */
+[data-slot="link"]:focus-visible::before {
+  outline-color: var(--ui-border-inverted);
+}
+
+/* Text fields: Nuxt UI's 1px primary ring is under 3:1 on white; add a solid outline. */
+:is(input, textarea):focus-visible {
+  outline: 2px solid var(--ui-border-inverted);
+  outline-offset: 2px;
+}
