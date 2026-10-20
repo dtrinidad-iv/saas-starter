@@ -2,7 +2,7 @@
 
 ## Stack
 - `api/`: Laravel (latest stable), PostgreSQL, Sanctum (token auth), Pest
-- `web/`: Nuxt 3, Nuxt UI, Pinia, TypeScript
+- `web/`: Nuxt 4 (code in `web/app/`), Nuxt UI, Pinia, TypeScript. Node 22.22.3+ (`web/.nvmrc`)
 - Local: macOS, Postgres running locally, API on :8000, Nuxt on :3000
 
 ## Commands
