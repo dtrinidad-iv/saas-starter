@@ -4,6 +4,7 @@ import type { DropdownMenuItem, NavigationMenuItem } from '@nuxt/ui'
 const auth = useAuthStore()
 const organizations = useOrganizationStore()
 const route = useRoute()
+const { can } = useOrganizationPermissions()
 
 // The mobile menu closes on navigation by itself; also close it after switching
 // organization from it, since the list page doesn't navigate.
@@ -29,6 +30,9 @@ const navigation = computed<NavigationMenuItem[]>(() => auth.user?.current_organ
       { label: 'Projects', icon: 'i-lucide-folder', to: '/projects', active: route.path.startsWith('/projects') },
       { label: 'Members', icon: 'i-lucide-users', to: '/members', active: route.path.startsWith('/members') },
       { label: 'Roles', icon: 'i-lucide-shield', to: '/roles', active: route.path.startsWith('/roles') },
+      ...(can('audit_log.view')
+        ? [{ label: 'Audit log', icon: 'i-lucide-scroll-text', to: '/audit-log', active: route.path.startsWith('/audit-log') }]
+        : []),
     ]
   : [])
 </script>

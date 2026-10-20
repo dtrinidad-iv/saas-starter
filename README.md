@@ -2,7 +2,7 @@
 
 A multi-organization SaaS starter: a **Laravel API** (`api/`) and a **Nuxt app** (`web/`).
 
-Users sign up, belong to several organizations with a role (Owner, Admin, Member, or custom roles built from a list of permissions), switch between them, invite teammates by email, and manage organization-owned data, starting with Projects. Projects get AI summaries (Claude) that a teammate reviews before they count. Each organization's data is isolated on the server: the active organization comes from the logged-in user, never from the request.
+Users sign up, belong to several organizations with a role (Owner, Admin, Member, or custom roles built from a list of permissions), switch between them, invite teammates by email, and manage organization-owned data, starting with Projects. Projects get AI summaries (Claude) that a teammate reviews before they count. An audit log records who did what in each organization. Each organization's data is isolated on the server: the active organization comes from the logged-in user, never from the request.
 
 ## Stack
 
@@ -45,6 +45,7 @@ Key settings in `api/.env`:
 | `AI_PROVIDER` | `anthropic` | `fake` returns canned summaries with no network calls (no key needed) |
 | `AI_MODEL` | `claude-haiku-5-5` | Model for all AI features |
 | `AI_RATE_LIMIT_PER_MINUTE` | `5` | AI requests per organization per minute |
+| `AUDIT_RETENTION_DAYS` | `365` | Days to keep audit log entries; `0` keeps them forever |
 
 ### 3. Web
 ```bash
@@ -62,6 +63,7 @@ cd api && php artisan serve          # API on http://localhost:8000
 cd api && php artisan queue:work     # sends queued emails and generates AI summaries
 cd web && npm run dev                # app on http://localhost:3000
 ```
+In production also run the scheduler (`php artisan schedule:work`, or a cron entry for `schedule:run`); it prunes old audit log entries daily.
 Open http://localhost:3000 and register; your first organization is created for you.
 
 ## Tests and checks
@@ -87,6 +89,7 @@ Every tenant-owned feature has a test proving organization A can't read or write
 | Roles: per-organization roles with permissions; create, edit, delete (not the built-in Owner, nor a role in use). People can only grant what they have | `GET/POST/PATCH/DELETE /api/roles`, `GET /api/permissions` | `/roles` |
 | Invitations by email: invite, revoke, accept | `GET/POST/DELETE /api/invitations`, `GET/POST /api/join/{token}` | `/members`, `/join/{token}` |
 | Projects: list with search and pagination (view, edit and delete from each row), create, edit, delete | `/api/projects` (REST) | `/projects`, `/projects/{id}` |
+| Audit log: member, invitation, role, project and AI summary changes with who, when, IP and before/after values. Needs the "View the audit log" permission (Owner and Admin by default), which shows names and changes of everything audited (project names and changes only to those who can view projects); IP addresses are shown to owners only. Behind a load balancer, configure trusted proxies so the real client IP is recorded; filter by action, person and date; pruned after `AUDIT_RETENTION_DAYS` | `GET /api/audit-logs`, `GET /api/audit-log/actions` | `/audit-log` |
 | AI project summaries: generated on create (or on request) as a draft, then approved or rejected. Rate limited per organization; every AI call is recorded in `ai_usage` with tokens and cost | `GET/POST /api/projects/{id}/summary`, `POST /api/projects/{id}/summaries/{summaryId}/approve`, `/reject` | AI summary card on `/projects/{id}` |
 
 Organization routes act on the user's **current** organization (`users.current_organization_id`). Tenant-owned models use the `BelongsToOrganization` trait, so another organization's records return 404.

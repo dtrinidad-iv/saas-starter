@@ -9,6 +9,7 @@ export type Permission
     | 'members.change_role'
     | 'members.remove'
     | 'roles.manage'
+    | 'audit_log.view'
 
 /** An entry of GET /api/permissions. */
 export interface PermissionInfo {
@@ -140,4 +141,27 @@ export interface ProjectSummary {
   updated_at: string
   /** What the current user may do, decided by the API. */
   can: { review: boolean, regenerate: boolean }
+}
+
+/** An entry of GET /api/audit-log/actions (mirrors App\Enums\AuditAction). */
+export interface AuditActionInfo {
+  value: string
+  group: string
+  label: string
+}
+
+/** One entry of the organization's audit log. */
+export interface AuditLogEntry {
+  id: number
+  action: string
+  action_label: string
+  /** Null for changes made without a user (jobs) or by a deleted user. */
+  actor: { id: number, name: string } | null
+  /** What was acted on; the label is its name at the time. */
+  subject: { type: string, id: number | null, label: string | null } | null
+  changes: Record<string, { old: unknown, new: unknown }>
+  metadata: Record<string, unknown>
+  /** Only sent to owners. */
+  ip_address?: string | null
+  created_at: string
 }
