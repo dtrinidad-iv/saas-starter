@@ -1,0 +1,98 @@
+# SaaS Starter
+
+A multi-organization SaaS starter: a **Laravel API** (`api/`) and a **Nuxt app** (`web/`).
+
+Users sign up, belong to several organizations with a role (owner, admin or member), switch between them, invite teammates by email, and manage organization-owned data, starting with Projects. Each organization's data is isolated on the server: the active organization comes from the logged-in user, never from the request.
+
+## Stack
+
+| | |
+|---|---|
+| API | Laravel 13, PHP 8.4, PostgreSQL, Sanctum (Bearer tokens), Pest |
+| Web | Nuxt 4, Nuxt UI 4, Pinia, TypeScript |
+
+**Requirements:**
+- **PHP 8.4+** (Pest 5 needs it), with the `pdo_pgsql` extension, and Composer.
+- **Node 22.22.3+.** The version is in `web/.nvmrc`; run `nvm use` in `web/`.
+- **PostgreSQL** running locally.
+
+## Setup
+
+### 1. Databases
+Create two databases: one for the app, and one for the tests (the tests wipe theirs).
+```bash
+createdb -h 127.0.0.1 -U postgres saas_starter
+createdb -h 127.0.0.1 -U postgres saas_starter_test
+```
+
+### 2. API
+```bash
+cd api
+composer install
+cp .env.example .env        # then set DB_* to match your Postgres
+php artisan key:generate
+php artisan migrate
+```
+Key settings in `api/.env`:
+
+| Key | Default | What it's for |
+|---|---|---|
+| `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | `saas_starter`, `postgres`, empty | The app database |
+| `FRONTEND_URL` | `http://localhost:3000` | The only origin CORS allows, and the base of invitation links |
+| `QUEUE_CONNECTION` | `database` | Invitation emails are queued |
+| `MAIL_MAILER` | `log` | Locally, emails (with their invitation links) are written to `storage/logs/laravel.log` |
+
+### 3. Web
+```bash
+cd web
+nvm use
+npm ci
+cp .env.example .env        # NUXT_PUBLIC_API_BASE=http://localhost:8000
+```
+
+## Run
+
+You need three terminals:
+```bash
+cd api && php artisan serve          # API on http://localhost:8000
+cd api && php artisan queue:work     # sends queued emails (invitations)
+cd web && npm run dev                # app on http://localhost:3000
+```
+Open http://localhost:3000 and register; your first organization is created for you.
+
+## Tests and checks
+Run everything with one command, from the repo root (it finds PHP 8.4 and the right Node version for you):
+```bash
+.claude/skills/verify/verify.sh          # or: verify.sh api | verify.sh web
+```
+Or run each step yourself:
+```bash
+cd api && php artisan test           # Pest, against saas_starter_test
+cd api && vendor/bin/pint --test app routes tests database config bootstrap/app.php bootstrap/providers.php
+cd web && npm run lint && npm run typecheck && npm run build
+```
+Every tenant-owned feature has a test proving organization A can't read or write organization B's data.
+
+## Features so far
+
+| Feature | API | Web |
+|---|---|---|
+| Register, log in, log out, current user | `POST /api/register`, `/login`, `/logout`, `GET /api/me` | `/register`, `/login` |
+| Organizations: list, create, switch | `GET/POST /api/organizations`, `POST /api/organizations/{id}/switch` | Org switcher in the header |
+| Members: list, change role, remove (at least one owner always remains) | `GET/PATCH/DELETE /api/members` | `/members` |
+| Invitations by email: invite, revoke, accept | `GET/POST/DELETE /api/invitations`, `GET/POST /api/join/{token}` | `/members`, `/join/{token}` |
+| Projects: list with search and pagination, create, edit, delete | `/api/projects` (REST) | `/projects`, `/projects/{id}` |
+
+Organization routes act on the user's **current** organization (`users.current_organization_id`). Tenant-owned models use the `BelongsToOrganization` trait, so another organization's records return 404.
+
+## Project layout
+```
+api/            Laravel API (Actions, Policies, Form Requests, Resources, Pest tests)
+web/app/        Nuxt app (pages, components, Pinia stores, useApi composable)
+docs/plans/     One plan per task, with status (Proposed → WIP → Done) and commit hashes
+CLAUDE.md       Conventions and rules for working on this repo (also used by Claude Code)
+.claude/        Claude Code skills, review agents and settings
+```
+
+## Contributing
+Read [CLAUDE.md](CLAUDE.md) for conventions: thin controllers, Actions, Form Requests, organization isolation, and docs updated in the same commit as the code they describe. Then see [docs/plans/](docs/plans/README.md) for how the project was built, task by task, including known follow-ups.

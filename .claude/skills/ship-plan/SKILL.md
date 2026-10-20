@@ -12,6 +12,14 @@ Plan: $ARGUMENTS. If no number is given, use the plan marked WIP in `docs/plans/
 ## Steps
 1. **Check scope.** Run `git status --short` and `git diff --stat`. Every changed file should belong to this plan. If something unrelated is there, stop and ask; never sweep it into a commit.
 2. **Verify.** Run `.claude/skills/verify/verify.sh` for the sides that changed. If anything fails, stop and report. Never commit red.
+2b. **Docs check.** For each line below, decide whether this plan triggers it. Update the doc in the same commit as the change it describes; never leave it for later.
+   - New env key → `api/.env.example`, with a comment.
+   - New or changed convention, command, port or architecture rule → `CLAUDE.md`.
+   - Setup or run steps, or a user-visible feature, added or changed → `README.md` (root).
+   - New `.claude/` skill, agent or MCP server → the tooling section of `CLAUDE.md`.
+   - Follow-ups found but not done → the plan's "Follow-ups" section.
+
+   List in the report which docs you updated, or "no doc changes needed".
 3. **Commit api, then web,** as separate commits in the format `type(scope): summary`:
    ```bash
    git add api && git commit -m "feat(api): <summary>
