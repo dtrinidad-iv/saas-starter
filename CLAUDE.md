@@ -33,8 +33,8 @@
 
 ## AI layer conventions
 - All AI calls happen in Laravel. Never expose provider keys to Nuxt.
-- Code against the `AiClient` interface. Provider and model come from `config/ai.php` and `.env`.
-- Slow work (summaries, bulk generation) runs as queued jobs with retries, backoff, and timeouts.
+- Code against the `AiClient` interface (`app/Ai`). Provider and model come from `config/ai.php` and `.env`. The container wraps the provider in `RecordingAiClient`, so `ai_usage` is written for you.
+- Slow work (summaries, bulk generation) runs as queued jobs with retries, backoff, and timeouts. Tenant work extends `App\Jobs\OrganizationJob` (sets the current organization); AI jobs add `RateLimited('ai')`.
 - Interactive chat uses SSE streaming. Everything else is queued.
 - Record every call in `ai_usage` (organization_id, user_id, feature, model, tokens in/out, cost).
 - Rate limit AI endpoints per organization.
@@ -42,7 +42,7 @@
 - Ask for structured JSON output and validate it before saving.
 - AI output is saved as a draft that a user approves. It must never trigger destructive actions on its own.
 - Treat all user content as untrusted (prompt injection). Never include another organization's data in a prompt.
-- In tests, fake the AI client. Never make real API calls in tests.
+- In tests, fake the AI client. Never make real API calls in tests. `TestCase` binds `FakeAiClient` as `$this->ai` (push responses, `assertSent`) and blocks stray HTTP. `AI_PROVIDER=fake` does the same for local and e2e runs.
 
 ## Automation conventions
 - Recurring work uses the Laravel Scheduler.

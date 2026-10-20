@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Enums\OrganizationRole;
 use App\Models\Organization;
 use App\Models\User;
+use Closure;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
 
 /**
@@ -52,6 +53,28 @@ class CurrentOrganization
         $this->organization = $organization;
         $this->role = $role;
         $this->resolved = true;
+    }
+
+    /**
+     * Run code acting in an organization, then put back whatever was current before
+     * (so a job run synchronously inside a request or another job doesn't change
+     * the caller's organization). The caller is responsible for having checked access.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    public function runAs(Organization $organization, Closure $callback): mixed
+    {
+        [$resolved, $previous, $role] = [$this->resolved, $this->organization, $this->role];
+        $this->set($organization);
+
+        try {
+            return $callback();
+        } finally {
+            [$this->resolved, $this->organization, $this->role] = [$resolved, $previous, $role];
+        }
     }
 
     /**

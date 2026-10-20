@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\OrganizationRole;
+use App\Enums\ProjectSummaryStatus;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
+use App\Models\Project;
+use App\Models\ProjectSummary;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -117,4 +120,24 @@ function inOrganization(Organization $organization, Closure $callback): mixed
     } finally {
         app(CurrentOrganization::class)->forget();
     }
+}
+
+/**
+ * A summary row in a given state, created directly (no job, no AI call).
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function createSummary(Organization $organization, Project $project, ProjectSummaryStatus $status, array $attributes = []): ProjectSummary
+{
+    return inOrganization($organization, function () use ($project, $status, $attributes) {
+        $summary = new ProjectSummary;
+        $summary->forceFill(array_merge([
+            'project_id' => $project->id,
+            'status' => $status,
+            'summary' => $status === ProjectSummaryStatus::Pending ? null : 'Existing summary.',
+            'key_points' => [],
+        ], $attributes))->save();
+
+        return $summary;
+    });
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\JoinController;
 use App\Http\Controllers\Api\MemberController;
 use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\ProjectSummaryController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:6,1');
@@ -35,5 +36,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/invitations/{invitation}', [InvitationController::class, 'destroy'])->whereNumber('invitation');
 
         Route::apiResource('projects', ProjectController::class)->whereNumber('project');
+
+        Route::prefix('projects/{project}')->whereNumber(['project', 'summary'])->scopeBindings()->group(function () {
+            Route::get('/summary', [ProjectSummaryController::class, 'show']);
+            Route::post('/summary', [ProjectSummaryController::class, 'store'])->middleware('throttle:ai');
+            Route::post('/summaries/{summary}/approve', [ProjectSummaryController::class, 'approve']);
+            Route::post('/summaries/{summary}/reject', [ProjectSummaryController::class, 'reject']);
+        });
     });
 });

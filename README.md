@@ -2,7 +2,7 @@
 
 A multi-organization SaaS starter: a **Laravel API** (`api/`) and a **Nuxt app** (`web/`).
 
-Users sign up, belong to several organizations with a role (owner, admin or member), switch between them, invite teammates by email, and manage organization-owned data, starting with Projects. Each organization's data is isolated on the server: the active organization comes from the logged-in user, never from the request.
+Users sign up, belong to several organizations with a role (owner, admin or member), switch between them, invite teammates by email, and manage organization-owned data, starting with Projects. Projects get AI summaries (Claude) that a teammate reviews before they count. Each organization's data is isolated on the server: the active organization comes from the logged-in user, never from the request.
 
 ## Stack
 
@@ -39,8 +39,12 @@ Key settings in `api/.env`:
 |---|---|---|
 | `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | `saas_starter`, `postgres`, empty | The app database |
 | `FRONTEND_URL` | `http://localhost:3000` | The only origin CORS allows, and the base of invitation links |
-| `QUEUE_CONNECTION` | `database` | Invitation emails are queued |
+| `QUEUE_CONNECTION` | `database` | Invitation emails and AI summaries are queued |
 | `MAIL_MAILER` | `log` | Locally, emails (with their invitation links) are written to `storage/logs/laravel.log` |
+| `ANTHROPIC_API_KEY` | empty | Claude API key, used only by the API. Without it, summaries are marked failed |
+| `AI_PROVIDER` | `anthropic` | `fake` returns canned summaries with no network calls (no key needed) |
+| `AI_MODEL` | `claude-haiku-5-5` | Model for all AI features |
+| `AI_RATE_LIMIT_PER_MINUTE` | `5` | AI requests per organization per minute |
 
 ### 3. Web
 ```bash
@@ -55,7 +59,7 @@ cp .env.example .env        # NUXT_PUBLIC_API_BASE=http://localhost:8000
 You need three terminals:
 ```bash
 cd api && php artisan serve          # API on http://localhost:8000
-cd api && php artisan queue:work     # sends queued emails (invitations)
+cd api && php artisan queue:work     # sends queued emails and generates AI summaries
 cd web && npm run dev                # app on http://localhost:3000
 ```
 Open http://localhost:3000 and register; your first organization is created for you.
@@ -82,6 +86,7 @@ Every tenant-owned feature has a test proving organization A can't read or write
 | Members: list, change role, remove (at least one owner always remains) | `GET/PATCH/DELETE /api/members` | `/members` |
 | Invitations by email: invite, revoke, accept | `GET/POST/DELETE /api/invitations`, `GET/POST /api/join/{token}` | `/members`, `/join/{token}` |
 | Projects: list with search and pagination, create, edit, delete | `/api/projects` (REST) | `/projects`, `/projects/{id}` |
+| AI project summaries: generated on create (or on request) as a draft, then approved or rejected. Rate limited per organization; every AI call is recorded in `ai_usage` with tokens and cost | `GET/POST /api/projects/{id}/summary`, `POST /api/projects/{id}/summaries/{summaryId}/approve`, `/reject` | AI summary card on `/projects/{id}` |
 
 Organization routes act on the user's **current** organization (`users.current_organization_id`). Tenant-owned models use the `BelongsToOrganization` trait, so another organization's records return 404.
 

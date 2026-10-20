@@ -7,9 +7,9 @@ use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * A project was created. Listeners should stay small and dispatch jobs for real work.
- * A queued listener gets the project back (models are restored without global
- * scopes), but must call CurrentOrganization::set() before other org-scoped queries.
+ * A project was created. Listeners should stay small and dispatch jobs for real work
+ * (e.g. QueueProjectSummary). Queued work should extend App\Jobs\OrganizationJob,
+ * which sets CurrentOrganization so org-scoped queries work inside the job.
  */
 class ProjectCreated
 {
