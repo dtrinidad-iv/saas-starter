@@ -15,4 +15,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 05 | [Projects](05-projects.md) | Done |
 | 06 | [Claude Code tooling](06-claude-code-tooling.md) | Done |
 | 07 | [Projects UI fixes](07-projects-ui-fixes.md) | Done |
-| 08 | [Project README and docs rule](08-project-readme.md) | WIP |
+| 08 | [Project README and docs rule](08-project-readme.md) | Done |

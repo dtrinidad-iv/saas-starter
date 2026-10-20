@@ -1,6 +1,7 @@
 # 08 — Project README and docs rule
 
-**Status:** WIP (approved in chat: "do the README task with it")
+**Status:** Done
+**Commits:** `2edf831` (docs)
 
 ## Goal
 Add a root `README.md` so that someone who clones the repo can set it up and run it. Write down when docs get updated, so they stay current. This is docs only, with no app code changes.
