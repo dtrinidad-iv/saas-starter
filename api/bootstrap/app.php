@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureCurrentOrganization;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // No web login page: API guests get a JSON 401 instead of a redirect to route('login').
         $middleware->redirectGuestsTo(fn (Request $request) => null);
+
+        $middleware->alias([
+            'organization' => EnsureCurrentOrganization::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

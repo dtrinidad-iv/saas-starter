@@ -54,6 +54,9 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // The Nuxt frontend. Used for links in emails (e.g. invitations) and CORS.
+    'frontend_url' => rtrim(env('FRONTEND_URL', 'http://localhost:3000'), '/'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

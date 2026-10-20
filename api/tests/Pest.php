@@ -2,8 +2,11 @@
 
 use App\Enums\OrganizationRole;
 use App\Models\Organization;
+use App\Models\OrganizationInvitation;
 use App\Models\User;
+use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /*
@@ -59,4 +62,39 @@ function userInOrganization(OrganizationRole $role = OrganizationRole::Owner, st
     $user->forceFill(['current_organization_id' => $organization->id])->save();
 
     return [$user, $organization];
+}
+
+/**
+ * Add a new user to the organization with the given role (their current organization).
+ */
+function addMember(Organization $organization, OrganizationRole $role = OrganizationRole::Member, array $attributes = []): User
+{
+    $user = User::factory()->create($attributes);
+    $organization->members()->attach($user, ['role' => $role]);
+    $user->forceFill(['current_organization_id' => $organization->id])->save();
+
+    return $user;
+}
+
+/**
+ * Create an invitation directly (no email). Returns the invitation and its plain token.
+ *
+ * @return array{0: OrganizationInvitation, 1: string}
+ */
+function createInvitation(Organization $organization, string $email, OrganizationRole $role = OrganizationRole::Member, array $attributes = []): array
+{
+    $token = Str::random(48);
+
+    app(CurrentOrganization::class)->set($organization);
+    // forceFill: tests may set non-fillable columns such as accepted_at.
+    $invitation = (new OrganizationInvitation)->forceFill(array_merge([
+        'email' => $email,
+        'role' => $role,
+        'token_hash' => OrganizationInvitation::hashToken($token),
+        'expires_at' => now()->addDays(7),
+    ], $attributes));
+    $invitation->save();
+    app(CurrentOrganization::class)->forget();
+
+    return [$invitation, $token];
 }
