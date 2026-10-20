@@ -85,7 +85,7 @@ Every tenant-owned feature has a test proving organization A can't read or write
 | Organizations: list, create, switch | `GET/POST /api/organizations`, `POST /api/organizations/{id}/switch` | Org switcher in the header |
 | Members: list, change role, remove (at least one owner always remains) | `GET/PATCH/DELETE /api/members` | `/members` |
 | Invitations by email: invite, revoke, accept | `GET/POST/DELETE /api/invitations`, `GET/POST /api/join/{token}` | `/members`, `/join/{token}` |
-| Projects: list with search and pagination, create, edit, delete | `/api/projects` (REST) | `/projects`, `/projects/{id}` |
+| Projects: list with search and pagination (view, edit and delete from each row), create, edit, delete | `/api/projects` (REST) | `/projects`, `/projects/{id}` |
 | AI project summaries: generated on create (or on request) as a draft, then approved or rejected. Rate limited per organization; every AI call is recorded in `ai_usage` with tokens and cost | `GET/POST /api/projects/{id}/summary`, `POST /api/projects/{id}/summaries/{summaryId}/approve`, `/reject` | AI summary card on `/projects/{id}` |
 
 Organization routes act on the user's **current** organization (`users.current_organization_id`). Tenant-owned models use the `BelongsToOrganization` trait, so another organization's records return 404.

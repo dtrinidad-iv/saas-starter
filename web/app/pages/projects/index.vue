@@ -49,8 +49,11 @@ watch(() => route.query, () => {
   }
 })
 
-// A different organization has different projects: start over.
+// A different organization has different projects: start over, and close any
+// edit or delete modal still holding the previous organization's project.
 watch(() => organizations.current?.id, () => {
+  editOpen.value = false
+  deleteOpen.value = false
   clearTimeout(searchTimer)
   search.value = ''
   debouncedSearch.value = ''
@@ -88,6 +91,7 @@ const columns: TableColumn<Project>[] = [
   { accessorKey: 'name', header: 'Project' },
   { accessorKey: 'creator', header: 'Created by', meta: wideOnly },
   { accessorKey: 'updated_at', header: 'Updated', meta: wideOnly },
+  { id: 'actions', header: () => h('span', { class: 'sr-only' }, 'Actions'), meta: { class: { td: 'text-right w-0' } } },
 ]
 
 const formatDate = (value: string) =>
@@ -117,6 +121,94 @@ async function create(payload: ProjectPayload) {
   }
   finally {
     creating.value = false
+  }
+}
+
+// Edit and delete from the list: one modal each. The selected project stays set
+// until its modal has finished closing, so the content doesn't go blank mid-fade.
+const editing = ref<Project | null>(null)
+const editOpen = ref(false)
+const saving = ref(false)
+const editForm = useTemplateRef<{ setErrors: (errors: ReturnType<typeof toFormErrors>) => void }>('editForm')
+
+const deleting = ref<Project | null>(null)
+const deleteOpen = ref(false)
+const removing = ref(false)
+
+// These modals have no trigger element. The dialog would refocus whatever was
+// focused when it opened, but the table reuses row elements, so after a delete
+// that button can belong to the next project. Take over its close-focus step:
+// back to the row button, or to the search field after a delete.
+const searchInput = useTemplateRef<{ inputRef: HTMLInputElement | null }>('searchInput')
+let returnFocusTo: HTMLElement | null = null
+
+const modalContent = {
+  onCloseAutoFocus(event: Event) {
+    event.preventDefault()
+    const target = returnFocusTo?.isConnected ? returnFocusTo : searchInput.value?.inputRef
+    returnFocusTo = null
+    target?.focus()
+  },
+}
+
+function startEdit(event: Event, project: Project) {
+  returnFocusTo = event.currentTarget as HTMLElement
+  editing.value = project
+  editOpen.value = true
+}
+
+function startDelete(event: Event, project: Project) {
+  returnFocusTo = event.currentTarget as HTMLElement
+  deleting.value = project
+  deleteOpen.value = true
+}
+
+async function save(payload: ProjectPayload) {
+  if (!editing.value) {
+    return
+  }
+  saving.value = true
+  try {
+    await api(`/api/projects/${editing.value.id}`, { method: 'PATCH', body: payload })
+    toast.add({ title: `Saved ${payload.name}`, color: 'success' })
+    editOpen.value = false
+    await refresh()
+  }
+  catch (error) {
+    const fieldErrors = toFormErrors(error)
+    if (fieldErrors.length) {
+      editForm.value?.setErrors(fieldErrors)
+    }
+    else {
+      toast.add({ title: 'Could not save project', description: errorMessage(error), color: 'error' })
+    }
+  }
+  finally {
+    saving.value = false
+  }
+}
+
+async function destroy() {
+  if (!deleting.value) {
+    return
+  }
+  const project = deleting.value
+  removing.value = true
+  try {
+    await api(`/api/projects/${project.id}`, { method: 'DELETE' })
+    toast.add({ title: `Deleted ${project.name}`, color: 'success' })
+    // The table reuses row elements, so the old button may now belong to the next
+    // project; land on the search field instead.
+    returnFocusTo = null
+    deleteOpen.value = false
+    // Also moves back a page if this was the last project on it.
+    await refresh()
+  }
+  catch (error) {
+    toast.add({ title: 'Could not delete project', description: errorMessage(error), color: 'error' })
+  }
+  finally {
+    removing.value = false
   }
 }
 </script>
@@ -155,6 +247,7 @@ async function create(payload: ProjectPayload) {
     </div>
 
     <UInput
+      ref="searchInput"
       v-model="search"
       placeholder="Search projects"
       aria-label="Search projects"
@@ -217,6 +310,48 @@ async function create(payload: ProjectPayload) {
           {{ formatDate(row.original.updated_at) }}
         </template>
 
+        <!-- View for everyone; Edit and Delete only when the API says this user may. -->
+        <template #actions-cell="{ row }">
+          <div class="flex justify-end gap-1">
+            <UTooltip text="View">
+              <UButton
+                :to="`/projects/${row.original.id}`"
+                icon="i-lucide-eye"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :aria-label="`View ${row.original.name}`"
+              />
+            </UTooltip>
+            <UTooltip
+              v-if="row.original.can.update"
+              text="Edit"
+            >
+              <UButton
+                icon="i-lucide-pencil"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :aria-label="`Edit ${row.original.name}`"
+                @click="startEdit($event, row.original)"
+              />
+            </UTooltip>
+            <UTooltip
+              v-if="row.original.can.delete"
+              text="Delete"
+            >
+              <UButton
+                icon="i-lucide-trash-2"
+                color="error"
+                variant="ghost"
+                size="sm"
+                :aria-label="`Delete ${row.original.name}`"
+                @click="startDelete($event, row.original)"
+              />
+            </UTooltip>
+          </div>
+        </template>
+
         <template #empty>
           <p class="py-6 text-center text-sm text-muted">
             {{ debouncedSearch ? `No projects match "${debouncedSearch}".` : 'No projects yet. Create the first one.' }}
@@ -235,5 +370,58 @@ async function create(payload: ProjectPayload) {
         :items-per-page="projects.meta.per_page"
       />
     </div>
+
+    <UModal
+      v-model:open="editOpen"
+      title="Edit project"
+      :dismissible="!saving"
+      :close="{ disabled: saving }"
+      :content="modalContent"
+      @after:leave="editing = null"
+    >
+      <template #body>
+        <ProjectForm
+          v-if="editing"
+          :key="editing.id"
+          ref="editForm"
+          :initial="editing"
+          submit-label="Save"
+          :loading="saving"
+          @submit="save"
+          @cancel="saving || (editOpen = false)"
+        />
+      </template>
+    </UModal>
+
+    <!-- Can't be dismissed while the delete is in flight. -->
+    <UModal
+      v-model:open="deleteOpen"
+      title="Delete project?"
+      :dismissible="!removing"
+      :close="{ disabled: removing }"
+      :content="modalContent"
+      @after:leave="deleting = null"
+    >
+      <template #body>
+        <p class="text-sm">
+          <strong>{{ deleting?.name }}</strong> will be deleted for everyone in {{ organizations.current?.name }}, including its AI summaries. This can't be undone.
+        </p>
+        <div class="mt-4 flex justify-end gap-2">
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="ghost"
+            :disabled="removing"
+            @click="deleteOpen = false"
+          />
+          <UButton
+            label="Delete"
+            color="error"
+            :loading="removing"
+            @click="destroy"
+          />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
