@@ -177,6 +177,11 @@ async function destroy() {
             No description.
           </p>
         </UCard>
+
+        <ProjectSummaryCard
+          :project-id="project.id"
+          :can-generate="project.can.update"
+        />
       </template>
 
       <!-- Can't be dismissed while the delete is in flight. -->

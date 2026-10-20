@@ -80,3 +80,24 @@ export interface Paginated<T> {
   data: T[]
   meta: { current_page: number, last_page: number, per_page: number, total: number }
 }
+
+export type ProjectSummaryStatus = 'pending' | 'draft' | 'approved' | 'rejected' | 'failed'
+
+/** An AI-generated project summary. Only an approved one is the project's summary. */
+export interface ProjectSummary {
+  id: number
+  project_id: number
+  status: ProjectSummaryStatus
+  summary: string | null
+  key_points: string[]
+  model: string | null
+  /** A short, user-facing reason, only when status is "failed". */
+  error: string | null
+  requested_by: { id: number, name: string } | null
+  reviewed_by: { id: number, name: string } | null
+  reviewed_at: string | null
+  created_at: string
+  updated_at: string
+  /** What the current user may do, decided by the API. */
+  can: { review: boolean, regenerate: boolean }
+}
