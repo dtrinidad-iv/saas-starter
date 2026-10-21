@@ -1,6 +1,7 @@
 # 16 — Project chat
 
-**Status:** Proposed
+**Status:** Done
+**Commits:** `d8bb5df` (api), `47d74ae` (web)
 
 Part of the AI improvements series (plans 13–16), built and shipped in order.
 
@@ -36,6 +37,19 @@ Decisions made:
   - permission table;
   - throttle and budget;
   - org A vs B: 404, and B's messages are never in A's prompt (`assertSent`).
+
+## Changes while building
+- The answer row is saved (empty, `stopped`) together with the question and updated when the stream ends (`AiEventStream`'s new `onEnd` hook). Saving it only at the end let a late-detected stop land after the next question, and a Clear could be undone by it.
+- Removing a member deletes their chats in that organization (`RemoveMember`), so a re-invited member doesn't get old conversations back.
+- `ProjectResource` gains `can.chat`; `useApiStream` gains `started`, so the panel knows whether the question was saved (the API saves it only once it starts streaming).
+- `FakeAiClient::ABORT` simulates the browser going away mid-answer in tests.
+- The prompt also tells the model never to ask for credentials or give links that aren't in the project (security review: stored prompt injection through a project description is a residual, low risk).
+
+## Follow-ups
+- `.claude/skills/e2e-smoke/servers.sh` doesn't set `AI_PROVIDER=fake`, and `.env` has no `AI_PROVIDER`, so the e2e API defaults to the real provider unless it's started with `AI_PROVIDER=fake` in the environment.
+- Clear chat dialog: initial focus lands on the close (X) button rather than Cancel (UI review, low).
+- Chat messages have no retention limit; a `MassPrunable` with a `CHAT_RETENTION_DAYS` setting would need a `created_at` index (database review, low).
+- Prompt `escape()` helpers encode only `<` and `>`; encoding `&` too would make tag boundaries unambiguous (security review, hardening).
 
 ## Reuse
 - `RecordingAiClient` decorator pattern and container binding: `app/Providers/AppServiceProvider.php`
