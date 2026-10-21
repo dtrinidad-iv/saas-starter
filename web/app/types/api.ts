@@ -266,3 +266,27 @@ export interface BillingOverview {
   credit_packs: CreditPack[]
   ai_budget: Omit<AiBudget, 'can_manage'>
 }
+
+/** Drafts are never listed; open means not paid yet. */
+export type InvoiceStatus = 'paid' | 'open' | 'void' | 'uncollectible'
+
+/** GET /api/billing/invoices (needs billing.manage), read live from Stripe. */
+export interface Invoice {
+  id: string
+  number: string | null
+  status: InvoiceStatus
+  /** In the currency's smallest unit (cents). */
+  total: number
+  currency: string
+  description: string | null
+  created_at: string
+  /** Stripe's hosted invoice page (pay an open one there). Only Stripe URLs. */
+  hosted_url: string | null
+  pdf_url: string | null
+}
+
+export interface InvoiceList {
+  data: Invoice[]
+  /** Pass as starting_after for the next page; null on the last one. */
+  meta: { next_cursor: string | null }
+}

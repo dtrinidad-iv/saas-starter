@@ -262,7 +262,15 @@ const budgetUsed = computed(() => {
               </template>
             </p>
             <UButton
-              label="Payment details and invoices"
+              to="/billing/invoices"
+              label="Invoices"
+              icon="i-lucide-receipt-text"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+            />
+            <UButton
+              label="Payment details"
               icon="i-lucide-external-link"
               color="neutral"
               variant="ghost"

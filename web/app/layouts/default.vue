@@ -29,7 +29,10 @@ const links = computed<NavigationMenuItem[]>(() => [
           ? [{ label: 'AI usage', icon: 'i-lucide-sparkles', to: '/ai-usage', active: route.path.startsWith('/ai-usage') }]
           : []),
         ...(can('billing.manage')
-          ? [{ label: 'Billing', icon: 'i-lucide-credit-card', to: '/billing', active: route.path.startsWith('/billing') }]
+          ? [
+              { label: 'Billing', icon: 'i-lucide-credit-card', to: '/billing', active: route.path === '/billing' },
+              { label: 'Invoices', icon: 'i-lucide-receipt-text', to: '/billing/invoices', active: route.path.startsWith('/billing/invoices') },
+            ]
           : []),
       ]
     : []),
