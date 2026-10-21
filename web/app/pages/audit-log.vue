@@ -166,6 +166,9 @@ const columns: TableColumn<AuditLogEntry>[] = [
   { accessorKey: 'action', header: 'What' },
 ]
 
+const actorName = (entry: AuditLogEntry) =>
+  entry.by_platform_admin ? 'Platform admin' : (entry.actor?.name ?? 'System or former member')
+
 // UTC so the server and browser render the same text.
 const formatTime = (value: string) =>
   new Date(value).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })
@@ -305,7 +308,7 @@ const hasDetails = (entry: AuditLogEntry) =>
           </template>
 
           <template #actor-cell="{ row }">
-            {{ row.original.actor?.name ?? 'System or former member' }}
+            {{ actorName(row.original) }}
           </template>
 
           <!-- All text is rendered escaped: names and values are user content. -->
@@ -317,7 +320,7 @@ const hasDetails = (entry: AuditLogEntry) =>
               </template>
             </p>
             <p class="text-muted text-xs sm:hidden">
-              {{ row.original.actor?.name ?? 'System or former member' }} · {{ formatTime(row.original.created_at) }} UTC
+              {{ actorName(row.original) }} · {{ formatTime(row.original.created_at) }} UTC
             </p>
           </template>
 

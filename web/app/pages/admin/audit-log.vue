@@ -29,6 +29,12 @@ const subjectLink = (entry: PlatformAuditLogEntry) => {
   return undefined
 }
 const actorName = (entry: PlatformAuditLogEntry) => entry.actor?.name ?? 'Console or former admin'
+// Admin actions carry the reason the admin gave; turning two-factor off ends admin on its own.
+const reasonOf = (entry: PlatformAuditLogEntry) => {
+  const reason = entry.metadata.reason
+  if (typeof reason !== 'string') return null
+  return reason === 'two_factor_disabled' && entry.action === 'admin.revoked' ? 'turned two-factor off' : reason
+}
 
 const formatTime = (value: string) =>
   new Date(value).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })
@@ -48,7 +54,7 @@ const formatTime = (value: string) =>
           Platform log
         </h1>
         <p class="text-sm text-muted">
-          Which admin looked at which user or organization, and who was made an admin. Only platform admins see this.
+          Which admin looked at or changed which user or organization, and why, and who was made an admin. Only platform admins see this.
         </p>
       </div>
 
@@ -83,6 +89,12 @@ const formatTime = (value: string) =>
                   class="break-all"
                 >{{ row.original.subject.label }}</span>
               </template>
+            </p>
+            <p
+              v-if="reasonOf(row.original)"
+              class="text-sm break-words text-muted"
+            >
+              Reason: {{ reasonOf(row.original) }}
             </p>
             <p class="text-xs text-muted sm:hidden">
               {{ actorName(row.original) }} · {{ formatTime(row.original.created_at) }} UTC

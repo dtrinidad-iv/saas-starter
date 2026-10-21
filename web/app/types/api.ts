@@ -205,8 +205,10 @@ export interface AuditLogEntry {
   id: number
   action: string
   action_label: string
-  /** Null for changes made without a user (jobs) or by a deleted user. */
+  /** Null for changes made without a user (jobs), by a deleted user, or by a platform admin. */
   actor: { id: number, name: string } | null
+  /** Made by a platform admin (support): shown as "Platform admin", without who. */
+  by_platform_admin: boolean
   /** What was acted on; the label is its name at the time. */
   subject: { type: string, id: number | null, label: string | null } | null
   changes: Record<string, { old: unknown, new: unknown }>
@@ -337,6 +339,8 @@ export interface AdminUser {
   email_verified: boolean
   two_factor_enabled: boolean
   is_platform_admin: boolean
+  /** Suspended by a platform admin: can't log in until unsuspended. */
+  suspended_at: string | null
   organizations_count?: number
   created_at: string
 }

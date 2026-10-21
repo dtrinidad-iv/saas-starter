@@ -4,39 +4,6 @@ import type { AdminFailure } from '~/composables/useAdminData'
 // What a platform admin page shows instead of its content when loading it failed.
 defineProps<{ failure: AdminFailure }>()
 const emit = defineEmits<{ retry: [] }>()
-
-const api = useApi()
-
-const pin = ref<number[]>([])
-const pinInput = useTemplateRef<{ inputsRef: { $el: HTMLElement }[] }>('pinInput')
-const error = ref<string | null>(null)
-const loading = ref(false)
-
-async function confirm() {
-  if (loading.value) return
-  const code = pin.value.join('')
-  if (code.length !== 6) {
-    error.value = 'Enter the 6-digit code.'
-    return
-  }
-
-  loading.value = true
-  error.value = null
-  try {
-    await api('/api/account/two-factor/reconfirm', { method: 'POST', body: { code } })
-    emit('retry')
-  }
-  catch (caught) {
-    const fieldErrors = toFormErrors(caught)
-    error.value = fieldErrors[0]?.message ?? errorMessage(caught)
-    pin.value = []
-    await nextTick()
-    pinInput.value?.inputsRef[0]?.$el.focus()
-  }
-  finally {
-    loading.value = false
-  }
-}
 </script>
 
 <template>
@@ -92,34 +59,10 @@ async function confirm() {
     <p class="mt-2 text-sm text-muted">
       Enter the 6-digit code from your authenticator app to open the admin area on this device.
     </p>
-    <form
-      class="mt-4 space-y-4"
-      @submit.prevent="confirm"
-    >
-      <UFormField
-        label="Authentication code"
-        name="code"
-        :error="error ?? undefined"
-      >
-        <UPinInput
-          ref="pinInput"
-          v-model="pin"
-          :length="6"
-          type="number"
-          otp
-          autofocus
-          size="xl"
-          placeholder="○"
-          aria-label="Authentication code"
-          @complete="confirm"
-        />
-      </UFormField>
-      <UButton
-        type="submit"
-        label="Continue"
-        :loading="loading"
-      />
-    </form>
+    <TwoFactorReconfirmForm
+      class="mt-4"
+      @confirmed="emit('retry')"
+    />
     <p class="mt-4 text-xs text-muted">
       Lost your phone? A recovery code still logs you in, but the admin area needs a code from the app.
     </p>

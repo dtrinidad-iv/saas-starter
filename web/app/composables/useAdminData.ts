@@ -45,7 +45,12 @@ export async function useAdminData<T>(key: MaybeRefOrGetter<string>, request: ()
     setResponseStatus(requestEvent, 404)
   }
 
-  return { data, failure, status, refresh }
+  // Show what an action returned, without loading (and logging a view) again.
+  const update = (value: T) => {
+    result.value = { ok: true, data: value }
+  }
+
+  return { data, failure, status, refresh, update }
 }
 
 function adminFailure(error: unknown): AdminFailure {

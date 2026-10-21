@@ -5,10 +5,12 @@ import type { AdminOrganizationDetail } from '~/types/api'
 definePageMeta({ middleware: 'auth' })
 
 const api = useApi()
+const auth = useAuthStore()
+const toast = useToast()
 const route = useRoute()
 const id = String(route.params.id)
 
-const { data: organization, failure, refresh } = await useAdminData(`admin-organization:${id}`, async () => {
+const { data: organization, failure, refresh, update } = await useAdminData(`admin-organization:${id}`, async () => {
   if (!/^\d+$/.test(id)) {
     throw createError({ statusCode: 404 })
   }
@@ -42,7 +44,35 @@ const columns: TableColumn<Member>[] = [
   { accessorKey: 'email', header: 'Email', meta: wideOnly },
   { id: 'role', header: 'Role' },
   { accessorKey: 'joined_at', header: 'Joined (UTC)', meta: wideOnly },
+  { id: 'actions', header: () => h('span', { class: 'sr-only' }, 'Actions'), meta: { class: { td: 'text-right' } } },
 ]
+
+// Make Owner: for an organization whose owners are gone. Never yourself.
+const canMakeOwner = (member: Member) => !member.role.is_owner && member.id !== auth.user?.id
+const makingOwner = ref<Member | null>(null)
+const ownerModalOpen = computed({
+  get: () => makingOwner.value !== null,
+  set: (open: boolean) => {
+    if (!open) makingOwner.value = null
+  },
+})
+
+// The modal runs this for the chosen member (it's only shown while one is chosen).
+async function makeOwner(reason: string) {
+  const member = makingOwner.value
+  if (!member) throw new Error('No member chosen.')
+  const response = await api<{ data: AdminOrganizationDetail }>(`/api/admin/organizations/${id}/owners`, {
+    method: 'POST',
+    body: { user_id: member.id, reason },
+  })
+  return response.data
+}
+
+function onOwnerMade(updated: AdminOrganizationDetail) {
+  const name = makingOwner.value?.name
+  update(updated)
+  toast.add({ title: `${name} is now an Owner of ${updated.name}`, color: 'success' })
+}
 
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' })
@@ -172,6 +202,18 @@ const formatDate = (value: string) =>
             <template #joined_at-cell="{ row }">
               <span class="whitespace-nowrap">{{ formatDate(row.original.joined_at) }}</span>
             </template>
+            <template #actions-cell="{ row }">
+              <UButton
+                v-if="canMakeOwner(row.original)"
+                label="Make Owner"
+                icon="i-lucide-crown"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                :aria-label="`Make ${row.original.name} Owner`"
+                @click="makingOwner = row.original"
+              />
+            </template>
             <template #empty>
               <p class="py-6 text-center text-sm text-muted">
                 No members.
@@ -186,6 +228,16 @@ const formatDate = (value: string) =>
           Showing the first {{ organization.members.length }} of {{ organization.counts.members }} members.
         </p>
       </section>
+
+      <AdminActionModal
+        v-if="makingOwner"
+        v-model:open="ownerModalOpen"
+        :title="`Make ${makingOwner.name} Owner?`"
+        :description="`${makingOwner.name} gets every permission in ${organization.name}, including members, roles and billing. They get an email, and the organization's audit log shows a platform admin did it.`"
+        confirm-label="Make Owner"
+        :action="makeOwner"
+        @done="onOwnerMade"
+      />
     </template>
   </div>
 </template>
