@@ -30,3 +30,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 20 | [Billing rate limit and screenshot refresh](20-billing-rate-limit-and-screenshots.md) | Done |
 | 21 | [Choose an organization after login](21-choose-organization-after-login.md) | Done |
 | 22 | [Account basics](22-account-basics.md) | Done |
+| 23 | [Flow tester subagent and e2e mail helpers](23-flow-tester.md) | Done |
