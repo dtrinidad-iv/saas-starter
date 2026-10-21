@@ -32,3 +32,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 22 | [Account basics](22-account-basics.md) | Done |
 | 23 | [Flow tester subagent and e2e mail helpers](23-flow-tester.md) | Done |
 | 24 | [Two-factor authentication](24-two-factor-authentication.md) | Done |
+| 25 | [Platform admin foundation](25-platform-admin-foundation.md) | Done |
