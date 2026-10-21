@@ -10,6 +10,7 @@
 - Queue worker: `php artisan queue:work`
 - Web: `cd web && npm run dev`, `npm run build`, `npm run lint`
 - Always run `php artisan test` (api) and `npm run build` (web) before saying a task is done.
+- Never wipe a database. Dev and test share one Postgres, and `--env=testing` without an `.env.testing` uses `.env`. `migrate:fresh`/`refresh`/`reset`/`rollback` and `db:wipe` refuse to run unless the database name ends in `_test` (`AppServiceProvider::guardDestructiveDatabaseCommands`; `DB_ALLOW_DESTRUCTIVE_COMMANDS=true` for one deliberate run by the user), and `.claude/hooks/block-destructive-db.sh` blocks them, `dropdb` and `DROP`/`TRUNCATE` for Claude. Pest rebuilds its own database.
 
 ## Multi-organization model
 - Users belong to many organizations via `organization_user` pivot with `role_id`. Roles are per organization (`roles` table, tenant-owned) with permissions from `App\Enums\Permission`. New organizations get Owner, Admin and Member (`App\Enums\DefaultRole`); Owner is built in (`is_owner`, every permission, can't be edited or deleted).
@@ -93,6 +94,7 @@
   - Read-only reviewers: `code-reviewer`, `security-auditor`, `tenant-isolation-reviewer`, `database-reviewer`, and `ui-reviewer` (browser; runs on Sonnet in quick mode, checking only the items listed, unless asked for a "full sweep").
   - `flow-tester` (browser + curl; Sonnet) runs a plan's Flows end to end, emails included, and returns a results table. It doesn't edit code, uses only `e2e-ft-*` accounts and removes them; a hook limits its `servers.sh` use to `status`, `errors` and `cleanup e2e-ft-`.
   - `laravel-test-writer` can edit only `api/tests/`, enforced by a hook.
+- Hooks: `block-destructive-db.sh` (every Bash call, subagents included) refuses commands that wipe or drop database data.
 - Before reporting a change as done, run the reviewers that fit, in parallel:
   - always code, security and tenant isolation;
   - database when there are migrations or queries;
