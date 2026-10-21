@@ -1,6 +1,7 @@
 {
     "name": "web",
     "version": "0.1.0",
+    "description": "Nuxt web app of SaaS Starter: organizations, roles, projects, AI features and billing, talking to the Laravel API in ../api",
     "type": "module",
     "private": true,
     "scripts": {

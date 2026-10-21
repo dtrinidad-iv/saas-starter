@@ -1,8 +1,73 @@
 # SaaS Starter
 
-A multi-organization SaaS starter: a **Laravel API** (`api/`) and a **Nuxt app** (`web/`).
+**A working starting point for a team-based SaaS app**: a Laravel API (`api/`) and a Nuxt web app (`web/`) with organizations, roles and permissions, an audit log, AI features powered by Claude, and Stripe billing already built and tested.
 
-Users sign up, belong to several organizations with a role (Owner, Admin, Member, or custom roles built from a list of permissions), switch between them, invite teammates by email, and manage organization-owned data, starting with Projects. Projects get AI summaries (Claude) that a teammate reviews before they count, and AI writing help in the project form (improve, expand or shorten the description, streamed as it's written, then accepted or discarded), plus a private AI chat about each project. An audit log records who did what in each organization. Each organization's data is isolated on the server: the active organization comes from the logged-in user, never from the request.
+Instead of starting from an empty project, you start from an app that already handles the parts every SaaS needs and that are easy to get wrong: keeping each customer's data separate, deciding who may do what, keeping AI costs under control, and taking payments. You then build your own product on top. **Projects** are the example feature to copy or replace.
+
+**Contents:** [What it does](#what-it-does) · [Key ideas](#key-ideas) · [Roles](#roles-and-permissions) · [How it works](#how-it-works) · [Stack](#stack) · [Setup](#setup) · [Run](#run) · [Tests](#tests-and-checks) · [API and pages](#api-and-pages) · [Screenshots](#screenshots)
+
+## What it does
+
+A quick tour, as a user would see it:
+
+1. **Sign up and get a workspace.** Registering creates your first **organization** (a workspace for your team or company), with you as its Owner. You can create more and switch between them from the sidebar.
+2. **Bring your team.** Invite people by email and give each a role. Use the built-in Owner, Admin and Member roles, or build your own from a list of permissions.
+3. **Work on projects.** Create, search, edit and delete projects. Everyone in the organization sees the same projects; other organizations never do.
+4. **Get help from AI** (Claude):
+   - **Summaries:** each project gets an AI summary with key points. It's a draft until a teammate approves it, and it's flagged when the project changes later.
+   - **Writing help:** "Improve with AI" rewrites, expands or shortens a description as you watch it being written. You accept or discard it.
+   - **Ask AI:** a private chat about a project, which only you see.
+5. **Keep AI costs in check.** Every AI call is recorded with its tokens and cost. Each organization has a monthly AI budget, and AI stops when it's used up.
+6. **Pay for more.** Organizations start on **Free**. **Pro** (a monthly Stripe subscription) raises the AI budget, and one-time **AI credits** add to this month's budget on any plan. Card details, invoices and cancelling are handled on Stripe's own pages.
+7. **See what happened.** The **audit log** records who did what and when (members, roles, projects, AI reviews, plan changes and purchases), with before and after values.
+
+## Key ideas
+
+| Term | What it means |
+|---|---|
+| **Organization** | A workspace that owns its data (projects, roles, audit log, AI usage, billing). A person can belong to several. |
+| **Current organization** | The one you're working in now, picked with the switcher in the sidebar. It's stored on the server, never sent by the browser, so a request can't reach another organization's data. |
+| **Member** | A person in an organization, with exactly one role there. |
+| **Role and permissions** | A role is a named set of permissions (for example "Edit any project" or "Manage billing"). The app checks permissions, never role names. |
+| **Owner** | The built-in role with every permission. It can't be edited or deleted, and an organization always keeps at least one owner. |
+| **Draft and approve** | AI output is saved as a draft that a person approves. AI never changes or deletes anything on its own. |
+| **AI budget** | Dollars of AI an organization can spend per month (UTC). It comes from the plan; owners can set a lower limit, or 0 to turn AI off. |
+| **AI credits** | A one-time purchase that adds to the AI budget for the rest of the month it's bought in. |
+| **Plan** | Free or Pro, set only by Stripe through a signed webhook. |
+
+## Roles and permissions
+
+Every new organization starts with three roles. Admin and Member are ordinary roles that owners can change; you can add more (for example "Contributor" or "Viewer").
+
+| Can… | Owner | Admin | Member |
+|---|:---:|:---:|:---:|
+| View and create projects, edit their own | ✓ | ✓ | ✓ |
+| Use AI features | ✓ | ✓ | ✓ |
+| Edit and delete any project | ✓ | ✓ | |
+| Invite people, change roles, remove members (only roles they cover) | ✓ | ✓ | |
+| View the audit log and AI usage | ✓ | ✓ | |
+| Create, edit and delete roles | ✓ | | |
+| Change the monthly AI budget | ✓ | | |
+| Manage the plan, payment details and invoices | ✓ | | |
+
+Nobody can hand out more than they have: a non-owner only grants, assigns or removes roles whose permissions they hold themselves.
+
+## How it works
+
+```
+ Browser ── Nuxt app (web/) ──── Bearer token ────▶ Laravel API (api/) ──▶ PostgreSQL
+                                                        │    │
+                                     Claude API ◀───────┘    └──▶ Stripe (Checkout, Customer Portal)
+                                     (AI calls only here)            │
+                                                                     └── signed webhook ──▶ Laravel API
+                                     Queue worker: emails, AI summaries
+```
+
+- **The web app is only a client.** Every rule is enforced in the API: who you are (Sanctum token), which organization you act in, and what your role allows (policies).
+- **Organizations stay separate on the server.** Organization-owned records are filtered to the current organization automatically, so another organization's record simply returns 404. Each feature has tests proving organization A can't read or change organization B's data.
+- **AI runs only in Laravel**, behind one interface: the API key never reaches the browser, every call is recorded and checked against the budget, and tests use a fake instead of real calls. Interactive answers stream to the browser (server-sent events); slow work such as summaries runs in a queued job.
+- **Billing goes through Stripe's hosted pages.** The API returns a Checkout or Customer Portal link; what was paid comes back only through Stripe's signed webhook, which updates the plan or adds credits.
+- **Everything notable is audited** in the same database transaction as the change.
 
 ## Stack
 
@@ -128,7 +193,9 @@ cd web && npm run lint && npm run typecheck && npm run build
 ```
 Every tenant-owned feature has a test proving organization A can't read or write organization B's data.
 
-## Features so far
+## API and pages
+
+Every feature, with its API endpoints and web page. This is the detailed reference behind [What it does](#what-it-does).
 
 | Feature | API | Web |
 |---|---|---|
@@ -201,12 +268,27 @@ Demo data with real Claude answers (Haiku), light mode.
 
 ## Project layout
 ```
-api/            Laravel API (Actions, Policies, Form Requests, Resources, Pest tests)
-web/app/        Nuxt app (pages, components, Pinia stores, useApi composable)
-docs/plans/     One plan per task, with status (Proposed → WIP → Done) and commit hashes
-CLAUDE.md       Conventions and rules for working on this repo (also used by Claude Code)
-.claude/        Claude Code skills, review agents and settings
+api/                     Laravel API
+  app/Actions/           Business logic, one class per action (controllers stay thin)
+  app/Ai/                AI client interface, Claude client, budget, prompts
+  app/Billing/           Plans, credit packs and the Stripe gateway (with a fake for tests)
+  app/Http/              Controllers, Form Requests (validation), Resources (JSON), middleware
+  app/Models/            Eloquent models; organization-owned ones use BelongsToOrganization
+  app/Policies/          Who may do what, by permission
+  config/ai.php, billing.php   AI model, pricing and budget; plans and credit packs
+  tests/Feature/         Pest tests, including organization A vs B isolation tests
+web/app/                 Nuxt app
+  pages/                 One file per page (projects, members, roles, audit log, AI usage, billing)
+  components/            Org switcher, project form, AI summary card, chat, ...
+  composables/useApi.ts  The only way to call the API (JSON and streamed answers)
+  stores/                Pinia: current user and current organization
+docs/plans/              One plan per task, with status (Proposed → WIP → Done) and commit hashes
+docs/screenshots/        The images in this README
+CLAUDE.md                Conventions and rules for working on this repo (also used by Claude Code)
+.claude/                 Claude Code skills, review agents and settings
 ```
+
+**Adding your own feature:** follow how Projects is built (model with `BelongsToOrganization`, policy, Form Requests, Action, Resource, page, and an isolation test). The `/tenant-feature` skill in `.claude/` walks through it step by step.
 
 ## Contributing
 Read [CLAUDE.md](CLAUDE.md) for conventions: thin controllers, Actions, Form Requests, organization isolation, and docs updated in the same commit as the code they describe. Then see [docs/plans/](docs/plans/README.md) for how the project was built, task by task, including known follow-ups.

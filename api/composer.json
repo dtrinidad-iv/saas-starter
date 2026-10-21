@@ -2,8 +2,8 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "laravel/laravel",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "Laravel API of SaaS Starter: multi-organization accounts, roles and permissions, audit log, Claude AI features and Stripe billing.",
+    "keywords": ["laravel", "saas", "multi-tenant", "organizations", "stripe", "cashier", "ai", "claude"],
     "license": "MIT",
     "require": {
         "php": "^8.3",
