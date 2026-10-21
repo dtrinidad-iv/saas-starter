@@ -78,5 +78,6 @@
 - Plans live in `docs/plans/NN-task-name.md` (named after the task) with a Status line: Proposed → WIP (on approval) → Done (when committed, with commit hashes). Keep the index in `docs/plans/README.md` in sync.
 - Build in small steps: one feature, tests passing, then commit.
 - Docs change in the same commit as the code they describe: `.env.example` (new keys), `CLAUDE.md` (conventions, commands, tooling), root `README.md` (setup, run steps, features). `/ship-plan` checks this.
+- A new page, or a user-visible feature worth showing, gets a README screenshot in the same plan: a PNG in `docs/screenshots/` plus a line in the README "Screenshots" section, captured with the Playwright MCP from e2e demo data the way plan 17 did (light mode, 1280×800, `e2e-*` accounts cleaned up). Retake an existing shot when a change makes it out of date.
 - Commit message format: `type(scope): summary` (e.g. `feat(api): add organization switch endpoint`).
 - Ask before adding a new dependency and say why it's needed.

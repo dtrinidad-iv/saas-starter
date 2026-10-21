@@ -37,6 +37,9 @@ Types, pages, components, store changes, header or navigation.
 ## Tests
 CRUD and validation, the permission table, and an **org A cannot read or write org B** test for every tenant-owned model.
 
+## README screenshots
+New or retaken shots in `docs/screenshots/` (file name and what each shows) for any new page or visible feature, or "none" with why. Captured as in plan 17.
+
 ## Verification
 `verify` skill (Pint, Pest, lint, typecheck, build), plus `e2e-smoke` for the flow, plus reviewer subagents on the diff.
 
