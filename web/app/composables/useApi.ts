@@ -55,6 +55,9 @@ export function useApiStream() {
   const text = ref('')
   const status = ref<ApiStreamStatus>('idle')
   const error = ref<string | null>(null)
+  // The API accepted the request and began streaming (so it passed its checks, and
+  // anything it saves first was saved); false when it refused it or couldn't be reached.
+  const started = ref(false)
   let controller: AbortController | null = null
 
   function fail(message: string) {
@@ -114,6 +117,7 @@ export function useApiStream() {
     controller = current
     text.value = ''
     error.value = null
+    started.value = false
     status.value = 'streaming'
 
     try {
@@ -132,6 +136,7 @@ export function useApiStream() {
         return await failForResponse(response, current.signal)
       }
 
+      started.value = true
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
       let buffer = ''
       while (true) {
@@ -178,6 +183,7 @@ export function useApiStream() {
     stop()
     text.value = ''
     error.value = null
+    started.value = false
     status.value = 'idle'
   }
 
@@ -185,5 +191,5 @@ export function useApiStream() {
     onScopeDispose(stop)
   }
 
-  return { text: readonly(text), status: readonly(status), error: readonly(error), start, stop, reset }
+  return { text: readonly(text), status: readonly(status), error: readonly(error), started: readonly(started), start, stop, reset }
 }

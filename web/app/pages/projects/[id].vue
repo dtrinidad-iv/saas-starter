@@ -82,6 +82,9 @@ async function save(payload: ProjectPayload) {
   }
 }
 
+// AI chat
+const chatOpen = ref(false)
+
 // Delete
 const deleteOpen = ref(false)
 const deleting = ref(false)
@@ -143,7 +146,15 @@ async function destroy() {
               Created by {{ project.creator?.name ?? 'a former member' }} · updated {{ formatDate(project.updated_at) }}
             </p>
           </div>
-          <div class="flex gap-2">
+          <div class="flex flex-wrap gap-2">
+            <UButton
+              v-if="project.can.chat"
+              label="Ask AI"
+              icon="i-lucide-message-circle"
+              color="neutral"
+              variant="outline"
+              @click="chatOpen = true"
+            />
             <UButton
               v-if="project.can.update"
               ref="editButton"
@@ -182,6 +193,13 @@ async function destroy() {
         <ProjectSummaryCard
           :project-id="project.id"
           :can-generate="project.can.update"
+        />
+
+        <ProjectChat
+          v-if="project.can.chat"
+          v-model:open="chatOpen"
+          :project-id="project.id"
+          :project-name="project.name"
         />
       </template>
 

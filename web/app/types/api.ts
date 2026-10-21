@@ -111,7 +111,7 @@ export interface Project {
   created_at: string
   updated_at: string
   /** What the current user may do, decided by the API. */
-  can: { update: boolean, delete: boolean }
+  can: { update: boolean, delete: boolean, chat: boolean }
 }
 
 export interface ProjectPayload {
@@ -203,4 +203,19 @@ export interface AiUsageReport {
   by_user: (AiUsageTotals & { user: { id: number, name: string } | null })[]
   by_day: (AiUsageTotals & { day: string })[]
   budget: AiBudget
+}
+
+export type ChatMessageRole = 'user' | 'assistant'
+
+/** complete; or for an answer: stopped (the user cancelled) or failed. Both keep the text that arrived. */
+export type ChatMessageStatus = 'complete' | 'failed' | 'stopped'
+
+/** One message of the current user's private AI chat about a project. */
+export interface ProjectChatMessage {
+  id: number
+  role: ChatMessageRole
+  content: string
+  status: ChatMessageStatus
+  model: string | null
+  created_at: string
 }
