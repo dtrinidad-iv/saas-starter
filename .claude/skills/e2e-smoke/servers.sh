@@ -2,14 +2,20 @@
 # Runs the API and the built web app on spare ports for end-to-end checks.
 # Never uses :8000/:3000 (the developer's own servers, or other projects).
 #
-# Usage: servers.sh start | stop | status | cleanup
-#   start    build web (skip with SKIP_BUILD=1), start API :8011 (4 workers, for streaming) and web :3011, wait until both answer
+# Usage: servers.sh start [--mail] | stop | status | cleanup [prefix] | errors
+#   start    build web (skip with SKIP_BUILD=1), start API :8011 (4 workers, for streaming) and web :3011, wait until both answer.
+#            Records where laravel.log ends, so errors and mail.sh only read this run.
+#            --mail: send emails straight away (sync queue) to the log, with links to :3011; read them with mail.sh
 #   stop     stop both
-#   cleanup  delete e2e-*@example.com users, their tokens and organizations only they belong to
+#   cleanup  delete <prefix>*@example.com users (prefix starts with e2e-, default e2e-), their tokens and organizations only they belong to
+#   errors   ERROR and worse entries in laravel.log since start (not from Pest runs), or "none"
+#
+# Ports are also in mail.sh (WEB_PORT); change both together.
 set -uo pipefail
 
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 state="${TMPDIR:-/tmp}/saas-starter-e2e"
+log="$root/api/storage/logs/laravel.log"
 API_PORT=8011
 WEB_PORT=3011
 mkdir -p "$state"
@@ -48,6 +54,7 @@ wait_for() {
 # The ( ... & ) wrappers get /dev/null as stdio so a caller piping our output (| tail) isn't held open.
 stop() {
   local port pid
+  rm -f "$state/mail"
   for port in $API_PORT $WEB_PORT; do
     for pid in $(lsof -nP -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null); do
       case "$(ps -o comm= -p "$pid")" in
@@ -59,7 +66,12 @@ stop() {
 }
 
 start() {
-  local php
+  local php mail_env=()
+  case "${1:-}" in
+    --mail) mail_env=(QUEUE_CONNECTION=sync MAIL_MAILER=log) ;;  # every queued job runs inline, not only mail
+    "") ;;
+    *) echo "Unknown option: $1 (only --mail)" >&2; exit 1 ;;
+  esac
   php="$(find_php)" || exit 1
   for port in $API_PORT $WEB_PORT; do
     if port_busy "$port"; then
@@ -74,7 +86,10 @@ start() {
     (cd "$root/web" && npm run build --silent >"$state/build.log" 2>&1) || { echo "web build failed, see $state/build.log" >&2; exit 1; }
   fi
 
-  (cd "$root/api/public" && FRONTEND_URL="http://localhost:$WEB_PORT" PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
+  # mail.sh refuses to run without this marker, so a run started without --mail fails loudly instead of finding no emails.
+  if [ ${#mail_env[@]} -gt 0 ]; then touch "$state/mail"; else rm -f "$state/mail"; fi
+  if [ -f "$log" ]; then wc -l <"$log" | tr -d ' ' >"$state/log.start"; else echo 0 >"$state/log.start"; fi
+  (cd "$root/api/public" && env ${mail_env[@]+"${mail_env[@]}"} FRONTEND_URL="http://localhost:$WEB_PORT" PHP_CLI_SERVER_WORKERS=4 nohup "$php" -S "127.0.0.1:$API_PORT" \
     ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php >"$state/api.log" 2>&1 &) </dev/null >/dev/null 2>&1
   (cd "$root/web" && PORT=$WEB_PORT NUXT_PUBLIC_API_BASE="http://localhost:$API_PORT" nohup node .output/server/index.mjs \
     >"$state/web.log" 2>&1 &) </dev/null >/dev/null 2>&1
@@ -82,27 +97,53 @@ start() {
   wait_for "http://127.0.0.1:$API_PORT/up" && wait_for "http://127.0.0.1:$WEB_PORT/login" || { stop; exit 1; }
   echo "API  http://localhost:$API_PORT   (log: $state/api.log)"
   echo "Web  http://localhost:$WEB_PORT   (log: $state/web.log)"
+  [ ${#mail_env[@]} -gt 0 ] && echo "Mail sent straight to $log (read with mail.sh)"
+  return 0
+}
+
+# Prints the log lines written since start. If the log got shorter (truncated or rotated), reads it all and warns.
+since_start() {
+  local start lines
+  start="$(cat "$state/log.start" 2>/dev/null)"
+  [[ "$start" =~ ^[0-9]+$ ]] || { echo "No recorded start. Run '$0 start' first." >&2; return 1; }
+  [ -f "$log" ] || return 0
+  lines="$(wc -l <"$log" | tr -d ' ')"
+  if [ "$lines" -lt "$start" ]; then
+    echo "laravel.log is shorter than at start (truncated or rotated); reading all of it" >&2
+    start=0
+  fi
+  tail -n +"$((start + 1))" "$log"
+}
+
+errors() {
+  local out
+  out="$(since_start)" || exit 1
+  printf '%s\n' "$out" | grep -E '^\[[^]]+\] [a-z]+\.(ERROR|CRITICAL|ALERT|EMERGENCY):' | grep -vE '^\[[^]]+\] testing\.' | cut -c1-300 | grep . || echo none
 }
 
 cleanup() {
-  local php
+  local php prefix="${1:-e2e-}"
+  # Only test accounts: the prefix must start with e2e- and contain nothing a LIKE pattern treats specially.
+  [[ "$prefix" =~ ^e2e-[a-z0-9-]*$ ]] || { echo "cleanup prefix must match e2e-[a-z0-9-]*, got: $prefix" >&2; exit 1; }
   php="$(find_php)" || exit 1
-  cd "$root/api" && "$php" artisan tinker --execute='
-    $users = App\Models\User::where("email", "like", "e2e-%@example.com")->get();
+  cd "$root/api" && E2E_PREFIX="$prefix" "$php" artisan tinker --execute='
+    $prefix = getenv("E2E_PREFIX");
+    $users = App\Models\User::where("email", "like", $prefix."%@example.com")->get();
     $ids = $users->pluck("id");
     $orgIds = DB::table("organization_user")->whereIn("user_id", $ids)->pluck("organization_id")->unique();
     $shared = DB::table("organization_user")->whereIn("organization_id", $orgIds)->whereNotIn("user_id", $ids)->pluck("organization_id");
     $users->each(fn ($user) => $user->tokens()->delete());
     App\Models\User::whereIn("id", $ids)->delete();
     $orgs = App\Models\Organization::whereIn("id", $orgIds->diff($shared))->delete();
-    echo "deleted {$ids->count()} e2e users and {$orgs} organizations\n";
+    echo "deleted {$ids->count()} {$prefix}* users and {$orgs} organizations\n";
   '
 }
 
 case "${1:-}" in
-  start) start ;;
+  start) start "${2:-}" ;;
   stop) stop ;;
   status) for p in $API_PORT $WEB_PORT; do port_busy "$p" && echo ":$p up" || echo ":$p down"; done ;;
-  cleanup) cleanup ;;
-  *) echo "Usage: $0 start|stop|status|cleanup" >&2; exit 1 ;;
+  cleanup) cleanup "${2:-}" ;;
+  errors) errors ;;
+  *) echo "Usage: $0 start [--mail]|stop|status|cleanup [prefix]|errors" >&2; exit 1 ;;
 esac

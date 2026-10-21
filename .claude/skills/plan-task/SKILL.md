@@ -43,6 +43,8 @@ New or retaken shots in `docs/screenshots/` (file name and what each shows) for 
 ## Verification
 `verify` skill (Pint, Pest, lint, typecheck, build), plus `e2e-smoke` for the flow, plus reviewer subagents on the diff.
 
+Flows (for `flow-tester`): numbered user steps, each with the expected result, e.g. "1. Sign up, open the link from the verification email while logged out → sent to log in, then verified". Or "Flows: none" and why.
+
 ## Commits after approval
 `feat(api): ...`, `feat(web): ...`, then this plan → Done.
 ```

@@ -76,15 +76,17 @@
   - `/plan-task` (write a plan and stop for approval)
   - `/verify` (Pint, Pest, lint, typecheck, build)
   - `/tenant-feature` (recipe for adding a tenant-owned feature)
-  - `/e2e-smoke` (real servers on :8011/:3011)
+  - `/e2e-smoke` (real servers on :8011/:3011; `start --mail` sends emails to the log at once, `mail.sh` reads them and their links)
   - `/ship-plan` (commit, push and mark the plan Done; only you can start it)
 - Subagents:
   - Read-only reviewers: `code-reviewer`, `security-auditor`, `tenant-isolation-reviewer`, `database-reviewer`, and `ui-reviewer` (browser; runs on Sonnet in quick mode, checking only the items listed, unless asked for a "full sweep").
+  - `flow-tester` (browser + curl; Sonnet) runs a plan's Flows end to end, emails included, and returns a results table. It doesn't edit code, uses only `e2e-ft-*` accounts and removes them; a hook limits its `servers.sh` use to `status`, `errors` and `cleanup e2e-ft-`.
   - `laravel-test-writer` can edit only `api/tests/`, enforced by a hook.
 - Before reporting a change as done, run the reviewers that fit, in parallel:
   - always code, security and tenant isolation;
   - database when there are migrations or queries;
   - UI when pages change.
+- After the tests pass, when the plan has Flows, start the servers with `--mail` and run `flow-tester` on them (in the background, alongside `ui-reviewer` if it runs).
 - MCP: `playwright` (headless browser for e2e and UI review), plus `nuxt-ui` and `nuxt` (docs). Check the Nuxt UI MCP before guessing component props.
 
 ## Workflow rules

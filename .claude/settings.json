@@ -4,6 +4,7 @@
       "Bash(.claude/skills/verify/verify.sh)",
       "Bash(.claude/skills/verify/verify.sh *)",
       "Bash(.claude/skills/e2e-smoke/servers.sh *)",
+      "Bash(.claude/skills/e2e-smoke/mail.sh *)",
       "Bash(git status)",
       "Bash(git status *)",
       "Bash(git diff)",
