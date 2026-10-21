@@ -20,6 +20,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
@@ -85,10 +86,27 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * migrate:fresh, migrate:refresh, migrate:reset, migrate:rollback and db:wipe
+     * refuse to run unless the default connection is a test database (its name ends
+     * in "_test", or "_test_N" for parallel runs) or DB_ALLOW_DESTRUCTIVE_COMMANDS is
+     * set for that one run. Anything else is someone's data: `--env=testing` without
+     * an .env.testing silently uses .env, and once wiped the dev database this way.
+     */
+    public static function guardDestructiveDatabaseCommands(): void
+    {
+        $database = (string) config('database.connections.'.config('database.default').'.database');
+        $isTestDatabase = preg_match('/_test(_\d+)?$/', $database) === 1;
+
+        DB::prohibitDestructiveCommands(! $isTestDatabase && ! config('database.allow_destructive_commands'));
+    }
+
+    /**
      * Bootstrap any application services.
      */
     public function boot(): void
     {
+        self::guardDestructiveDatabaseCommands();
+
         // A suspended user's tokens are deleted when they're suspended; this also
         // refuses one issued in a race with that (401, like a revoked token).
         Sanctum::authenticateAccessTokensUsing(

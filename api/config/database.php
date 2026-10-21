@@ -20,6 +20,14 @@ return [
     'default' => env('DB_CONNECTION', 'sqlite'),
 
     /*
+    | migrate:fresh/refresh/reset/rollback and db:wipe only run against a test
+    | database (AppServiceProvider::guardDestructiveDatabaseCommands) unless this
+    | is true. Set it on the command line for one deliberate run, never in .env.
+    */
+
+    'allow_destructive_commands' => (bool) env('DB_ALLOW_DESTRUCTIVE_COMMANDS', false),
+
+    /*
     |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
