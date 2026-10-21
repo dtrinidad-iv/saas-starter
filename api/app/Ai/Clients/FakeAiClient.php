@@ -16,6 +16,9 @@ use Throwable;
  */
 class FakeAiClient implements AiClient
 {
+    // Put in a pushed stream to stop there as if $onText returned false (the browser went away).
+    public const ABORT = "\0abort";
+
     /** @var list<AiResponse|array<string, mixed>|Throwable> */
     private array $queue = [];
 
@@ -41,7 +44,8 @@ class FakeAiClient implements AiClient
 
     /**
      * Queue the next stream: text chunks (a Throwable among them is thrown at that
-     * point, after the chunks before it), or an exception thrown before any text.
+     * point, after the chunks before it; ABORT stops there), or an exception thrown
+     * before any text.
      *
      * @param  list<string|Throwable>|Throwable  $chunks
      */
@@ -68,6 +72,10 @@ class FakeAiClient implements AiClient
         foreach ($chunks as $chunk) {
             if ($chunk instanceof Throwable) {
                 throw $chunk;
+            }
+
+            if ($chunk === self::ABORT) {
+                return new AiResponse($text, null, $this->model, 100, $sent, 'aborted');
             }
 
             $text .= $chunk;
@@ -135,6 +143,7 @@ class FakeAiClient implements AiClient
     {
         return match ($request->feature) {
             'project_writing' => ['A clearer description ', 'of the project, ', 'written by the fake AI client.'],
+            'project_chat' => ['This answer about the project ', 'comes from the fake AI client.'],
             default => ['Fake ', 'streamed ', 'response'],
         };
     }

@@ -70,7 +70,7 @@ it('lets a custom viewer role read projects but not change them', function () {
     $viewer = addMember($this->acme, createRole($this->acme, 'Viewer', [Permission::ProjectsView]));
     Sanctum::actingAs($viewer);
 
-    $this->getJson('/api/projects')->assertOk()->assertJsonPath('data.0.can', ['update' => false, 'delete' => false]);
+    $this->getJson('/api/projects')->assertOk()->assertJsonPath('data.0.can', ['update' => false, 'delete' => false, 'chat' => false]);
     $this->getJson("/api/projects/{$project->id}")->assertOk();
     $this->postJson('/api/projects', ['name' => 'New'])->assertForbidden();
     $this->patchJson("/api/projects/{$project->id}", ['name' => 'Renamed'])->assertForbidden();

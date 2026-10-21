@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\ChatMessageRole;
+use App\Enums\ChatMessageStatus;
 use App\Enums\DefaultRole;
 use App\Enums\Permission;
 use App\Enums\ProjectSummaryStatus;
@@ -8,6 +10,7 @@ use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\Project;
+use App\Models\ProjectChatMessage;
 use App\Models\ProjectSummary;
 use App\Models\Role;
 use App\Models\Scopes\OrganizationScope;
@@ -16,6 +19,7 @@ use App\Support\CurrentOrganization;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /*
@@ -216,5 +220,43 @@ function createAiUsage(Organization $organization, array $attributes = []): AiUs
         ], $attributes))->save();
 
         return $usage;
+    });
+}
+
+/**
+ * The server-sent events in a streamed response, in order.
+ *
+ * @return list<array{event: string, data: array<string, mixed>}>
+ */
+function sseEvents(TestResponse $response): array
+{
+    $events = [];
+
+    foreach (array_filter(explode("\n\n", $response->streamedContent())) as $block) {
+        preg_match('/^event: (.+)\ndata: (.+)$/s', $block, $match);
+        $events[] = ['event' => $match[1], 'data' => json_decode($match[2], true)];
+    }
+
+    return $events;
+}
+
+/**
+ * A chat message written directly (no AI call).
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function createChatMessage(Organization $organization, Project $project, User $user, ChatMessageRole $role, string $content, array $attributes = []): ProjectChatMessage
+{
+    return inOrganization($organization, function () use ($project, $user, $role, $content, $attributes) {
+        $message = new ProjectChatMessage;
+        $message->forceFill(array_merge([
+            'project_id' => $project->id,
+            'user_id' => $user->id,
+            'role' => $role,
+            'content' => $content,
+            'status' => ChatMessageStatus::Complete,
+        ], $attributes))->save();
+
+        return $message;
     });
 }

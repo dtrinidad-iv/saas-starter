@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\JoinController;
 use App\Http\Controllers\Api\MemberController;
 use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\ProjectChatController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectSummaryController;
 use App\Http\Controllers\Api\ProjectWritingHelpController;
@@ -61,6 +62,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/summary', [ProjectSummaryController::class, 'store'])->middleware('throttle:ai');
             Route::post('/summaries/{summary}/approve', [ProjectSummaryController::class, 'approve']);
             Route::post('/summaries/{summary}/reject', [ProjectSummaryController::class, 'reject']);
+
+            Route::get('/chat', [ProjectChatController::class, 'index']);
+            Route::post('/chat', [ProjectChatController::class, 'store'])->middleware('throttle:ai');
+            Route::delete('/chat', [ProjectChatController::class, 'destroy']);
         });
     });
 });

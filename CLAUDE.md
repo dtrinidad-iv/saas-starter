@@ -36,14 +36,14 @@
 - All AI calls happen in Laravel. Never expose provider keys to Nuxt.
 - Code against the `AiClient` interface (`app/Ai`). Provider and model come from `config/ai.php` and `.env`. The container wraps the provider in `RecordingAiClient`, so `ai_usage` is written for you, and in `BudgetedAiClient`, which refuses calls once the organization's monthly budget is used up (`AiBudgetExceeded`: 402 in requests, a failed result in jobs). Check `AiBudget` before starting AI work so nothing is created that can't run.
 - Slow work (summaries, bulk generation) runs as queued jobs with retries, backoff, and timeouts. Tenant work extends `App\Jobs\OrganizationJob` (sets the current organization); AI jobs add `RateLimited('ai')`.
-- Interactive AI (chat, writing help) streams as SSE: `AiClient::stream()` returned as `App\Http\Responses\AiEventStream` (events `delta`, `done`, `error`). Its status is always 200 once it starts, so check the policy, validation and `AiBudget`, and take an `AiStreamSlots` slot (concurrent streams per organization), before returning it. Background work is queued.
+- Interactive AI (chat, writing help) streams as SSE: `AiClient::stream()` returned as `App\Http\Responses\AiEventStream` (events `delta`, `done`, `error`). Its status is always 200 once it starts, so check the policy, validation and `AiBudget`, and take an `AiStreamSlots` slot (concurrent streams per organization), before returning it. To save the answer (e.g. chat messages), pass `onEnd`, which runs once with the text and outcome (done, error, stopped). Background work is queued.
 - Record every call in `ai_usage` (organization_id, user_id, feature, model, tokens in/out, cost).
 - Rate limit AI endpoints per organization. User-triggered AI needs the `ai.use` permission in its policy.
 - Prompts live in dedicated classes or files under `app/Ai/Prompts`, not inline strings.
 - Ask for structured JSON output and validate it before saving.
 - AI output is saved as a draft that a user approves. It must never trigger destructive actions on its own.
 - Treat all user content as untrusted (prompt injection). Never include another organization's data in a prompt.
-- In tests, fake the AI client. Never make real API calls in tests. `TestCase` binds `FakeAiClient` as `$this->ai` (push responses, `assertSent`) and blocks stray HTTP. `AI_PROVIDER=fake` does the same for local and e2e runs.
+- In tests, fake the AI client. Never make real API calls in tests. `TestCase` binds `FakeAiClient` as `$this->ai` (push responses and streams, `FakeAiClient::ABORT` to simulate the browser leaving, `assertSent`) and blocks stray HTTP. `AI_PROVIDER=fake` does the same for local and e2e runs.
 
 ## Audit log conventions
 - Tenant-owned models that users create, edit or delete use the `Auditable` trait (diffs of changed columns; keys, timestamps and `$hidden` are never logged; add others to `$auditExclude`).

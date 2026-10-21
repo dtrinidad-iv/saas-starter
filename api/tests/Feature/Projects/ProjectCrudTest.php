@@ -22,7 +22,7 @@ it('creates a project in the current organization and dispatches ProjectCreated'
         ->assertJsonPath('data.name', 'Website relaunch')
         ->assertJsonPath('data.description', 'New marketing site')
         ->assertJsonPath('data.creator.id', $owner->id)
-        ->assertJsonPath('data.can', ['update' => true, 'delete' => true]);
+        ->assertJsonPath('data.can', ['update' => true, 'delete' => true, 'chat' => true]);
 
     $project = Project::withoutGlobalScopes()->findOrFail($response->json('data.id'));
     expect($project->organization_id)->toBe($acme->id)

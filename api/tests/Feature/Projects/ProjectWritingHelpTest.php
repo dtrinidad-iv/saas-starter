@@ -9,7 +9,6 @@ use App\Models\AiUsage;
 use App\Models\Project;
 use App\Support\CurrentOrganization;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
@@ -24,23 +23,6 @@ beforeEach(function () {
     ]));
     $this->othersProject = inOrganization($this->acme, fn () => Project::factory()->create(['created_by' => $this->otherMember->id]));
 });
-
-/**
- * The server-sent events in a streamed response, in order.
- *
- * @return list<array{event: string, data: array<string, mixed>}>
- */
-function sseEvents(TestResponse $response): array
-{
-    $events = [];
-
-    foreach (array_filter(explode("\n\n", $response->streamedContent())) as $block) {
-        preg_match('/^event: (.+)\ndata: (.+)$/s', $block, $match);
-        $events[] = ['event' => $match[1], 'data' => json_decode($match[2], true)];
-    }
-
-    return $events;
-}
 
 it('streams the new description as delta events followed by done', function () {
     Sanctum::actingAs($this->member);

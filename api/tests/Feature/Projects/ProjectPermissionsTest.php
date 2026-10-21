@@ -62,8 +62,8 @@ it('reports the permissions per project', function () {
 
     $rows = collect($this->getJson('/api/projects')->json('data'))->keyBy('id');
 
-    expect($rows[$this->ownProject->id]['can'])->toBe(['update' => true, 'delete' => false])
-        ->and($rows[$this->othersProject->id]['can'])->toBe(['update' => false, 'delete' => false]);
+    expect($rows[$this->ownProject->id]['can'])->toBe(['update' => true, 'delete' => false, 'chat' => true])
+        ->and($rows[$this->othersProject->id]['can'])->toBe(['update' => false, 'delete' => false, 'chat' => true]);
 });
 
 it('loses edit rights on own projects once demoted from admin', function () {

@@ -10,6 +10,7 @@ use App\Ai\Exceptions\AiRequestFailed;
 use App\Ai\Exceptions\AiUnavailable;
 use App\Models\Organization;
 use App\Support\CurrentOrganization;
+use Closure;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Support\Responsable;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -30,12 +31,14 @@ class AiEventStream implements Responsable
 {
     /**
      * @param  int|null  $maxLength  Characters; a longer answer ends with an error instead of done.
+     * @param  (Closure(string, string, ?string): void)|null  $onEnd  See end(); e.g. to save the answer.
      */
     public function __construct(
         private readonly Organization $organization,
         private readonly Lock $slot,
         private readonly AiRequest $request,
         private readonly ?int $maxLength = null,
+        private readonly ?Closure $onEnd = null,
     ) {}
 
     public function toResponse($request): StreamedResponse
@@ -59,48 +62,93 @@ class AiEventStream implements Responsable
     private function streamAnswer(): void
     {
         // Keep running when the browser goes away, so the call is stopped and recorded
-        // (ai_usage) by us instead of PHP ending the script mid-call.
+        // (ai_usage, onEnd) by us instead of PHP ending the script mid-call.
         $ignoreAbort = ignore_user_abort(true);
 
         try {
-            $response = app(AiClient::class)->stream($this->request, function (string $text) {
-                $this->send('delta', ['text' => $text]);
-
-                return connection_aborted() === 0;
-            });
-
-            $this->finish($response);
-        } catch (AiBudgetExceeded) {
-            $this->send('error', ['message' => 'This organization\'s monthly AI budget is used up.']);
-        } catch (AiUnavailable) {
-            $this->send('error', ['message' => 'The AI service is busy or unreachable. Try again in a moment.']);
-        } catch (AiRequestFailed $e) {
-            $this->send('error', ['message' => match ($e->errorCode) {
-                'refusal' => 'The AI declined this request.',
-                'max_tokens' => 'The answer was too long. Try again with shorter text.',
-                default => 'The AI request failed.',
-            }]);
-        } catch (Throwable $e) {
-            report($e);
-            $this->send('error', ['message' => 'Something went wrong. Please try again.']);
+            $this->answer();
         } finally {
             ignore_user_abort($ignoreAbort);
         }
     }
 
+    private function answer(): void
+    {
+        $text = '';
+
+        try {
+            $response = app(AiClient::class)->stream($this->request, function (string $piece) use (&$text) {
+                $text .= $piece;
+                $this->send('delta', ['text' => $piece]);
+
+                return connection_aborted() === 0;
+            });
+        } catch (AiBudgetExceeded) {
+            $this->fail($text, 'This organization\'s monthly AI budget is used up.');
+
+            return;
+        } catch (AiUnavailable) {
+            $this->fail($text, 'The AI service is busy or unreachable. Try again in a moment.');
+
+            return;
+        } catch (AiRequestFailed $e) {
+            $this->fail($text, match ($e->errorCode) {
+                'refusal' => 'The AI declined this request.',
+                'max_tokens' => 'The answer was too long. Try again with shorter text.',
+                default => 'The AI request failed.',
+            });
+
+            return;
+        } catch (Throwable $e) {
+            report($e);
+            $this->fail($text, 'Something went wrong. Please try again.');
+
+            return;
+        }
+
+        $this->finish($response);
+    }
+
     private function finish(AiResponse $response): void
     {
         if ($response->stopReason === 'aborted') {
+            $this->end($response->text, 'stopped', $response->model);
+
             return;
         }
 
         if ($this->maxLength !== null && mb_strlen(trim($response->text)) > $this->maxLength) {
-            $this->send('error', ['message' => "The answer was longer than {$this->maxLength} characters. Try again."]);
+            $this->fail($response->text, "The answer was longer than {$this->maxLength} characters. Try again.", $response->model);
 
             return;
         }
 
+        $this->end($response->text, 'done', $response->model);
         $this->send('done', ['model' => $response->model]);
+    }
+
+    private function fail(string $text, string $message, ?string $model = null): void
+    {
+        $this->end($text, 'error', $model);
+        $this->send('error', ['message' => $message]);
+    }
+
+    /**
+     * Calls onEnd once, before the last event: with the text so far, the outcome ("done",
+     * "error", or "stopped" when the browser went away) and the model if known. It runs
+     * as the organization. A failing hook is reported, and the browser still gets the last event.
+     */
+    private function end(string $text, string $outcome, ?string $model): void
+    {
+        if ($this->onEnd === null) {
+            return;
+        }
+
+        try {
+            ($this->onEnd)($text, $outcome, $model);
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /**

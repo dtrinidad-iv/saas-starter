@@ -27,6 +27,7 @@ class ProjectResource extends JsonResource
             'can' => [
                 'update' => $request->user()->can('update', $this->resource),
                 'delete' => $request->user()->can('delete', $this->resource),
+                'chat' => $request->user()->can('chat', $this->resource),
             ],
         ];
     }

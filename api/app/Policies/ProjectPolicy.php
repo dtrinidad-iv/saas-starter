@@ -49,6 +49,12 @@ class ProjectPolicy
             && ($project === null ? $this->create($user) : $this->update($user, $project));
     }
 
+    // The user's own AI chat about the project (reading, asking, clearing).
+    public function chat(User $user, Project $project): bool
+    {
+        return $this->view($user, $project) && $this->currentOrganization->can(Permission::AiUse);
+    }
+
     public function delete(User $user, Project $project): bool
     {
         return $this->view($user, $project) && $this->currentOrganization->can(Permission::ProjectsDelete);
