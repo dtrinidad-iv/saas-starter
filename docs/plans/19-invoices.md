@@ -53,7 +53,7 @@ Out of scope: refunds, credit notes, editing billing details or tax ids, emailin
 New `docs/screenshots/invoices.png`: the invoices page with a Pro subscription invoice and an AI credits invoice (fake provider, plan 17's e2e demo data, light mode, 1280×800, `e2e-*` accounts cleaned up). `billing.png` retaken (the Plan header links change). README: feature row updated (`GET /api/billing/invoices`, `/billing/invoices`) and a line in "Screenshots".
 
 ## Verification
-`/verify` (Pint, Pest, lint, typecheck, build); `/e2e-smoke` with `BILLING_PROVIDER=fake` (owner sees invoices, member gets the no-access state, org switch reloads); manual test-mode check with real Stripe keys (a Pro invoice and a credits receipt, links open on Stripe, PDF downloads). Reviewers in parallel: code, security, tenant isolation, UI (database not needed: no migrations or queries beyond the fake).
+`/verify` (Pint, Pest, lint, typecheck, build); `/e2e-smoke` with `BILLING_PROVIDER=fake` (owner sees invoices, member gets the no-access state, org switch reloads); manual test-mode check with real Stripe keys (a Pro invoice and a credits receipt, links open on Stripe, PDF downloads), done by the user in Stripe test mode (2026-10-21). Reviewers in parallel: code, security, tenant isolation, UI (database not needed: no migrations or queries beyond the fake).
 
 ## Commits after approval
 - `feat(api): list the organization's invoices from Stripe`
@@ -61,6 +61,5 @@ New `docs/screenshots/invoices.png`: the invoices page with a Pro subscription i
 - this plan → Done
 
 ## Follow-ups
-- Manual test-mode check with real Stripe keys (a Pro invoice and a credits receipt, View/PDF open on Stripe) not run yet; everything so far ran on the fake provider.
 - The invoices throttle (`throttle:30,1`) is per user; a per-organization limit would stop many members of one organization from adding up against the Stripe account's API rate limit.
 - `ai-usage.png` and the older README screenshots predate the "Billing" and "Invoices" sidebar items; retake them with plan 17's demo data next time they change.
