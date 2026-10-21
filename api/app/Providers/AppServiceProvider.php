@@ -14,6 +14,7 @@ use App\Billing\StripeBillingGateway;
 use App\Enums\Permission;
 use App\Jobs\OrganizationJob;
 use App\Models\Organization;
+use App\Models\PersonalAccessToken;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -25,7 +26,6 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
 use Laravel\Cashier\Cashier;
-use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
@@ -107,12 +107,29 @@ class AppServiceProvider extends ServiceProvider
     {
         self::guardDestructiveDatabaseCommands();
 
+        Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
+
         // A suspended user's tokens are deleted when they're suspended; this also
-        // refuses one issued in a race with that (401, like a revoked token).
-        Sanctum::authenticateAccessTokensUsing(
-            fn (PersonalAccessToken $token, bool $isValid) => $isValid
-                && ! ($token->tokenable instanceof User && $token->tokenable->isSuspended()),
-        );
+        // refuses one issued in a race with that (401, like a revoked token). A "view as
+        // user" session also ends once its admin could no longer start one: no longer an
+        // admin, two-factor off or suspended, or the user it views became an admin.
+        Sanctum::authenticateAccessTokensUsing(function (PersonalAccessToken $token, bool $isValid): bool {
+            if (! $isValid || ! $token->tokenable instanceof User || $token->tokenable->isSuspended()) {
+                return false;
+            }
+
+            if (! $token->isImpersonation()) {
+                return true;
+            }
+
+            $admin = $token->impersonator;
+
+            return $admin !== null
+                && $admin->isPlatformAdmin()
+                && $admin->hasTwoFactorEnabled()
+                && ! $admin->isSuspended()
+                && ! $token->tokenable->isPlatformAdmin();
+        });
 
         // AI calls per organization: the route middleware (throttle:ai) counts requests
         // from the UI, the job middleware (RateLimited('ai')) counts calls to the

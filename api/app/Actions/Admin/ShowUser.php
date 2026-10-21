@@ -20,8 +20,10 @@ class ShowUser
         $user->load(['organizations' => fn ($query) => $query->orderBy('organizations.name')]);
         Membership::loadRoles($user->organizations);
 
-        $user->loadCount('tokens');
-        $user->loadMax('tokens', 'last_used_at');
+        // Devices, so not support's own "view as user" sessions.
+        $devices = ['tokens' => fn ($query) => $query->whereNull('impersonator_id')];
+        $user->loadCount($devices);
+        $user->loadMax($devices, 'last_used_at');
 
         if ($record) {
             $this->recordAudit->handle(PlatformAuditAction::UserViewed, [

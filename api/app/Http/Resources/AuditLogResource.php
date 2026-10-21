@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Enums\Permission;
 use App\Models\AuditLog;
 use App\Support\CurrentOrganization;
+use App\Support\Impersonation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -19,8 +20,11 @@ class AuditLogResource extends JsonResource
     public function toArray(Request $request): array
     {
         $currentOrganization = app(CurrentOrganization::class);
-        // Project names and content only for those who may view projects.
-        $hidden = $this->subject_type === 'project' && ! $currentOrganization->can(Permission::ProjectsView);
+        // Project names and content only for those who may view projects, and never
+        // in a platform admin's "view as user" session.
+        $impersonating = app(Impersonation::class)->active();
+        $hidden = $this->subject_type === 'project'
+            && (! $currentOrganization->can(Permission::ProjectsView) || $impersonating);
 
         return [
             'id' => $this->id,
@@ -36,8 +40,9 @@ class AuditLogResource extends JsonResource
             ],
             'changes' => $hidden ? (object) [] : ($this->changes ?? (object) []),
             'metadata' => $this->metadata ?? (object) [],
-            // Personal data: only for owners, not everyone who can read the log.
-            'ip_address' => $this->when($currentOrganization->role()?->is_owner === true, $this->ip_address),
+            // Personal data: only for owners, not everyone who can read the log, and never
+            // for a platform admin viewing as one.
+            'ip_address' => $this->when($currentOrganization->role()?->is_owner === true && ! $impersonating, $this->ip_address),
             'created_at' => $this->created_at,
         ];
     }

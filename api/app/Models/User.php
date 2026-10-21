@@ -77,15 +77,22 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * The current organization, but only if the user is still a member of it.
-     * The returned model has the membership (role) loaded.
+     * The returned model has the membership (role) loaded. In a platform admin's
+     * "view as user" session it's the organization that session is looking at, so
+     * switching there never changes the user's own.
      */
     public function activeOrganization(): ?Organization
     {
-        if ($this->current_organization_id === null) {
+        $token = $this->currentAccessToken();
+        $organizationId = $token instanceof PersonalAccessToken && $token->isImpersonation()
+            ? $token->organization_id
+            : $this->current_organization_id;
+
+        if ($organizationId === null) {
             return null;
         }
 
-        return $this->organizations()->whereKey($this->current_organization_id)->first();
+        return $this->organizations()->whereKey($organizationId)->first();
     }
 
     public function isMemberOf(Organization|int $organization): bool

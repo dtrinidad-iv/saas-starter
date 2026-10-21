@@ -19,6 +19,7 @@ it('returns the authenticated user', function () {
                 'email_verified' => true,
                 'two_factor_enabled' => false,
                 'is_platform_admin' => false,
+                'impersonated_by' => null,
                 'current_organization' => null,
                 'created_at' => $user->created_at->toJSON(),
             ],

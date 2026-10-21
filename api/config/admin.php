@@ -16,4 +16,11 @@ return [
 
     'action_two_factor_ttl_minutes' => (int) env('ADMIN_ACTION_TWO_FACTOR_TTL_MINUTES', 15),
 
+    /*
+    | A read-only "view as user" session (StartImpersonation) ends after this
+    | many minutes. It isn't renewed: the admin starts a new one.
+    */
+
+    'impersonation_minutes' => (int) env('ADMIN_IMPERSONATION_MINUTES', 30),
+
 ];

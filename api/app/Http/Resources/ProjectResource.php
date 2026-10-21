@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Project;
+use App\Support\Impersonation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,10 +17,14 @@ class ProjectResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // A platform admin viewing as the user sees the name, never the content.
+        $contentHidden = app(Impersonation::class)->active();
+
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'description' => $this->description,
+            'description' => $contentHidden ? null : $this->description,
+            'content_hidden' => $contentHidden,
             'creator' => $this->whenLoaded('creator', fn () => $this->creator?->only(['id', 'name'])),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

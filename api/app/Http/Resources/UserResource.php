@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\PersonalAccessToken;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -17,6 +18,8 @@ class UserResource extends JsonResource
     public function toArray(Request $request): array
     {
         $currentOrganization = $this->activeOrganization();
+        $token = $this->currentAccessToken();
+        $impersonation = $token instanceof PersonalAccessToken && $token->isImpersonation() ? $token : null;
 
         return [
             'id' => $this->id,
@@ -25,6 +28,11 @@ class UserResource extends JsonResource
             'email_verified' => $this->hasVerifiedEmail(),
             'two_factor_enabled' => $this->hasTwoFactorEnabled(),
             'is_platform_admin' => $this->isPlatformAdmin(),
+            // A platform admin's read-only "view as user" session: only their name, never their email.
+            'impersonated_by' => $impersonation === null ? null : [
+                'name' => $impersonation->impersonator?->name,
+                'expires_at' => $impersonation->expires_at,
+            ],
             'current_organization' => $currentOrganization ? new OrganizationResource($currentOrganization) : null,
             'created_at' => $this->created_at,
         ];

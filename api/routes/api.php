@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\ImpersonationController as AdminImpersonationController;
 use App\Http\Controllers\Api\Admin\OrganizationController as AdminOrganizationController;
 use App\Http\Controllers\Api\Admin\OrganizationOwnerController as AdminOrganizationOwnerController;
 use App\Http\Controllers\Api\Admin\UserActionController as AdminUserActionController;
@@ -47,8 +48,10 @@ Route::options('/admin/{path?}', fn (Request $request) => throw EnsurePlatformAd
 // From Stripe, not the app: no user, authenticated by the payload signature.
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])->middleware(['throttle:120,1', VerifyStripeWebhook::class]);
 
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout']);
+// 'impersonation': a platform admin's "view as user" session can only read (see
+// ReadOnlyImpersonation); 'not-impersonating' hides a route from it entirely.
+Route::middleware(['auth:sanctum', 'impersonation'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/me', [AuthController::class, 'me']);
 
     // The link from the verification email (Nuxt posts it here), and a new one.
@@ -67,13 +70,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/account/two-factor/reconfirm', [TwoFactorController::class, 'reconfirm'])->middleware('throttle:6,1,account');
     Route::post('/account/two-factor/recovery-codes', [TwoFactorController::class, 'recoveryCodes'])->middleware('throttle:6,1,account');
     Route::delete('/account/two-factor', [TwoFactorController::class, 'destroy'])->middleware('throttle:6,1,account');
-    Route::get('/account/devices', [DeviceController::class, 'index']);
+    Route::get('/account/devices', [DeviceController::class, 'index'])->middleware('not-impersonating');
     Route::delete('/account/devices/{device}', [DeviceController::class, 'destroy'])->whereNumber('device');
 
     Route::get('/organizations', [OrganizationController::class, 'index']);
     Route::post('/organizations', [OrganizationController::class, 'store']);
     Route::post('/organizations/{organization}/switch', [OrganizationController::class, 'switch'])
-        ->whereNumber('organization');
+        ->whereNumber('organization')->name('organizations.switch');
 
     // Accepting an invitation (token from the email link), from any current organization.
     Route::get('/join/{token}', [JoinController::class, 'show']);
@@ -96,6 +99,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/users/{user}/suspend', [AdminUserActionController::class, 'suspend'])->whereNumber('user');
             Route::post('/users/{user}/unsuspend', [AdminUserActionController::class, 'unsuspend'])->whereNumber('user');
             Route::post('/organizations/{organization}/owners', [AdminOrganizationOwnerController::class, 'store'])->whereNumber('organization');
+            // A read-only "view as user" session (a token for the user; see StartImpersonation).
+            Route::post('/users/{user}/impersonate', [AdminImpersonationController::class, 'store'])->whereNumber('user');
         });
     });
 
@@ -134,12 +139,12 @@ Route::middleware('auth:sanctum')->group(function () {
             ->whereNumber('project')->middleware(['verified', 'throttle:ai']);
 
         Route::prefix('projects/{project}')->whereNumber(['project', 'summary'])->scopeBindings()->group(function () {
-            Route::get('/summary', [ProjectSummaryController::class, 'show']);
+            Route::get('/summary', [ProjectSummaryController::class, 'show'])->middleware('not-impersonating');
             Route::post('/summary', [ProjectSummaryController::class, 'store'])->middleware(['verified', 'throttle:ai']);
             Route::post('/summaries/{summary}/approve', [ProjectSummaryController::class, 'approve']);
             Route::post('/summaries/{summary}/reject', [ProjectSummaryController::class, 'reject']);
 
-            Route::get('/chat', [ProjectChatController::class, 'index']);
+            Route::get('/chat', [ProjectChatController::class, 'index'])->middleware('not-impersonating');
             Route::post('/chat', [ProjectChatController::class, 'store'])->middleware(['verified', 'throttle:ai']);
             Route::delete('/chat', [ProjectChatController::class, 'destroy']);
         });

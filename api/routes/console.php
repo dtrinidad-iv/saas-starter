@@ -12,3 +12,6 @@ Artisan::command('inspire', function () {
 
 // Delete audit log entries (organization and platform) older than config('audit.retention_days').
 Schedule::command('model:prune', ['--model' => [AuditLog::class, PlatformAuditLog::class]])->daily();
+
+// Expired tokens, i.e. platform admins' "view as user" sessions (the only tokens that expire).
+Schedule::command('sanctum:prune-expired', ['--hours' => 24])->daily();

@@ -21,10 +21,12 @@ class RecordPlatformAudit
      *
      * @param  array{type: string, id: int|null, label: string|null}|null  $subject
      * @param  array<string, mixed>  $metadata
+     * @param  User|null  $actor  defaults to the logged-in user (in a "view as user" session
+     *                            that's the user being viewed, so pass the admin)
      */
-    public function handle(PlatformAuditAction $action, ?array $subject = null, array $metadata = []): PlatformAuditLog
+    public function handle(PlatformAuditAction $action, ?array $subject = null, array $metadata = [], ?User $actor = null): PlatformAuditLog
     {
-        $user = $this->auth->guard()->user();
+        $user = $actor ?? $this->auth->guard()->user();
 
         $entry = (new PlatformAuditLog)->forceFill([
             'actor_id' => $user instanceof User ? $user->id : null,

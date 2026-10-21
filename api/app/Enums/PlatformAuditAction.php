@@ -17,6 +17,8 @@ enum PlatformAuditAction: string
     case UserSuspended = 'admin.user_suspended';
     case UserUnsuspended = 'admin.user_unsuspended';
     case OwnerAssigned = 'admin.owner_assigned';
+    case ImpersonationStarted = 'admin.impersonation_started';
+    case ImpersonationEnded = 'admin.impersonation_ended';
 
     public function label(): string
     {
@@ -30,6 +32,8 @@ enum PlatformAuditAction: string
             self::UserSuspended => 'Suspended a user',
             self::UserUnsuspended => 'Unsuspended a user',
             self::OwnerAssigned => 'Made a member Owner',
+            self::ImpersonationStarted => 'Started viewing as a user',
+            self::ImpersonationEnded => 'Stopped viewing as a user',
         };
     }
 }

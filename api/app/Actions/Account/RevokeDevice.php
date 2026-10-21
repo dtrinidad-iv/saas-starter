@@ -14,7 +14,7 @@ class RevokeDevice
      */
     public function handle(User $user, int $tokenId): void
     {
-        $deleted = $user->tokens()->whereKey($tokenId)->delete();
+        $deleted = $user->tokens()->whereNull('impersonator_id')->whereKey($tokenId)->delete();
 
         if ($deleted === 0) {
             throw new NotFoundHttpException;

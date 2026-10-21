@@ -11,12 +11,14 @@ use Illuminate\Http\Response;
 
 /**
  * The logged-in user's API tokens, as signed-in devices. Another user's token is a 404.
+ * Support's "view as user" sessions aren't devices: they're left out, and can't be revoked here.
  */
 class DeviceController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
         $tokens = $request->user()->tokens()
+            ->whereNull('impersonator_id')
             ->orderByRaw('last_used_at desc nulls last')
             ->latest('id')
             ->limit(100)
