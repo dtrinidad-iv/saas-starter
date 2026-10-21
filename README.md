@@ -98,6 +98,54 @@ Every tenant-owned feature has a test proving organization A can't read or write
 
 Organization routes act on the user's **current** organization (`users.current_organization_id`). Tenant-owned models use the `BelongsToOrganization` trait, so another organization's records return 404.
 
+## Screenshots
+
+Demo data with real Claude answers (Haiku), light mode.
+
+### Projects and AI
+
+**Projects** in the current organization, with who created them.
+
+![Projects list in the Acme Studio organization](docs/screenshots/projects.png)
+
+**AI summary**, approved by a teammate before it shows as the project's summary.
+
+![Project page with its approved AI summary and key points](docs/screenshots/project-summary.png)
+
+**Writing help** streams a better description into the form; accept, retry or discard it.
+
+![Edit project form with an AI suggestion ready to accept](docs/screenshots/writing-help.png)
+
+**Ask AI**: a private chat about the project, streamed as it's written.
+
+![Ask AI panel with two questions and answers about the project](docs/screenshots/project-chat.png)
+
+### Team and admin
+
+**Members** and pending invitations, with a role per person.
+
+![Members page with two members and two pending invitations](docs/screenshots/members.png)
+
+**Roles** built from permissions; Owner is built in.
+
+![Roles page with Owner, Admin, Contributor, Member and Viewer](docs/screenshots/roles.png)
+
+**Permissions** a role grants, picked from a grouped list. Policies check these, never role names.
+
+![Edit role dialog with the Contributor role's permissions ticked](docs/screenshots/role-permissions.png)
+
+**Audit log** of who did what, with filters.
+
+![Audit log with project, invitation and AI summary entries](docs/screenshots/audit-log.png)
+
+**AI usage** against the monthly budget, by feature and person.
+
+![AI usage page with budget, totals and usage by feature](docs/screenshots/ai-usage.png)
+
+**Mobile**: the sidebar collapses into a menu.
+
+<img src="docs/screenshots/mobile.png" alt="Project page at phone width" width="300">
+
 ## Project layout
 ```
 api/            Laravel API (Actions, Policies, Form Requests, Resources, Pest tests)
