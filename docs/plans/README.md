@@ -28,3 +28,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 18 | [Stripe billing](18-stripe-billing.md) | Done |
 | 19 | [Invoices](19-invoices.md) | Done |
 | 20 | [Billing rate limit and screenshot refresh](20-billing-rate-limit-and-screenshots.md) | Done |
+| 21 | [Choose an organization after login](21-choose-organization-after-login.md) | Done |
