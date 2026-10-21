@@ -30,6 +30,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
       },
     })),
   }],
+  [{ label: 'Account settings', icon: 'i-lucide-user-cog', to: '/account' }],
   [{ label: 'Log out', icon: 'i-lucide-log-out', onSelect: () => auth.logout() }],
 ])
 </script>

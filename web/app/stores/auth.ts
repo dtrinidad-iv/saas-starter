@@ -1,6 +1,6 @@
 import { defineStore, getActivePinia, skipHydrate } from 'pinia'
 import type { RouteLocationRaw } from 'vue-router'
-import type { AuthResponse, LoginPayload, Organization, RegisterPayload, User } from '~/types/api'
+import type { AuthResponse, LoginPayload, Organization, RegisterPayload, ResetPasswordPayload, User } from '~/types/api'
 
 export const useAuthStore = defineStore('auth', () => {
   // The Pinia instance of this request. Other stores are looked up through it, because
@@ -46,6 +46,17 @@ export const useAuthStore = defineStore('auth', () => {
     setSession(await api<AuthResponse>('/api/login', { method: 'POST', body: payload }))
   }
 
+  // A reset signs out every device and logs in with a new token.
+  async function resetPassword(payload: ResetPasswordPayload) {
+    const api = useApi()
+    setSession(await api<AuthResponse>('/api/reset-password', { method: 'POST', body: payload }))
+  }
+
+  // After an account change the API returned (name, email, verification).
+  function setUser(updated: User) {
+    user.value = updated
+  }
+
   async function logout(to: RouteLocationRaw = '/login') {
     // Not useApi's 401 handling: it would clear the session on this page (see below).
     const api = useApi({ handleUnauthorized: false })
@@ -88,5 +99,5 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // skipHydrate: keep the live cookie ref instead of replacing it with the SSR payload value.
-  return { token: skipHydrate(token), user, isLoggedIn, register, login, logout, fetchMe, clearSession, setCurrentOrganization }
+  return { token: skipHydrate(token), user, isLoggedIn, register, login, resetPassword, logout, fetchMe, setUser, clearSession, setCurrentOrganization }
 })

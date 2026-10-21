@@ -3,6 +3,7 @@ import type { FetchError } from 'ofetch'
 
 interface LaravelErrorBody {
   message?: string
+  code?: string
   errors?: Record<string, string[]>
 }
 
@@ -28,6 +29,9 @@ export function errorMessage(error: unknown): string {
     if (error.statusCode === 429) {
       return 'Too many attempts. Please wait a minute and try again.'
     }
+    if (isEmailUnverified(error)) {
+      return 'Verify your email address to use this feature. Use the link we emailed you, or resend it from the banner at the top.'
+    }
     if (error.data?.message) {
       return error.data.message
     }
@@ -37,4 +41,9 @@ export function errorMessage(error: unknown): string {
   }
 
   return 'Something went wrong. Please try again.'
+}
+
+/** The API refused because the user hasn't verified their email (the 'verified' middleware). */
+export function isEmailUnverified(error: unknown): boolean {
+  return isFetchError(error) && error.statusCode === 403 && error.data?.code === 'email_unverified'
 }

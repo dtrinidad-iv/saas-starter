@@ -85,6 +85,7 @@ const navigation = computed(() => links.value.map(item => ({ ...item, 'aria-labe
     <UDashboardPanel>
       <!-- Pages render their own <h1>, so the app name here (mobile only, next to the sidebar toggle) is not a heading. -->
       <template #header>
+        <VerifyEmailBanner />
         <UDashboardNavbar
           title="SaaS Starter"
           :as="{ title: 'p' }"

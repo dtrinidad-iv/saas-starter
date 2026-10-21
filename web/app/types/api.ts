@@ -56,6 +56,7 @@ export interface User {
   id: number
   name: string
   email: string
+  email_verified: boolean
   current_organization: Organization | null
   created_at: string
 }
@@ -75,6 +76,23 @@ export interface RegisterPayload {
 export interface LoginPayload {
   email: string
   password: string
+}
+
+export interface ResetPasswordPayload {
+  token: string
+  email: string
+  password: string
+  password_confirmation: string
+}
+
+/** One of the user's API tokens, shown as a signed-in device. */
+export interface Device {
+  id: number
+  name: string
+  ip_address: string | null
+  last_used_at: string | null
+  created_at: string
+  is_current: boolean
 }
 
 export interface Member {
