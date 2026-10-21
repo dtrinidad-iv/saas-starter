@@ -61,5 +61,5 @@ New `docs/screenshots/invoices.png`: the invoices page with a Pro subscription i
 - this plan → Done
 
 ## Follow-ups
-- The invoices throttle (`throttle:30,1`) is per user; a per-organization limit would stop many members of one organization from adding up against the Stripe account's API rate limit.
-- `ai-usage.png` and the older README screenshots predate the "Billing" and "Invoices" sidebar items; retake them with plan 17's demo data next time they change.
+- ~~The invoices throttle is per user only~~: done in plan 20 (`throttle:stripe`, per user and per organization).
+- ~~Older README screenshots predate the "Billing" and "Invoices" sidebar items~~: retaken in plan 20.

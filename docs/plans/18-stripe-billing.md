@@ -75,5 +75,5 @@ Decisions taken: Laravel Cashier (new dependency, approved), Free/Pro tiers, cre
 - Refunds and disputes don't take AI credits back (`charge.refunded`, `charge.dispute.created`); adjust by hand in the meantime.
 - Two checkouts opened in two tabs can both be paid; the webhook logs a warning so the extra subscription can be refunded. A stronger guard would reuse a still-open Checkout session.
 - Deleting an organization (not built yet) must cancel its Stripe subscription first; the local rows cascade.
-- The other README screenshots predate the "Billing" sidebar link (shown to owners); retake them with plan 17's demo data next time they change. `ai-usage.png` and `billing.png` are current.
+- ~~The other README screenshots predate the "Billing" sidebar link~~: retaken in plan 20.
 - Production: set Stripe's "If all retries for a payment fail" to cancel the subscription.
