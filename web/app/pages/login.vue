@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { Form, FormError, FormSubmitEvent } from '@nuxt/ui'
+import type { RouteLocationRaw } from 'vue-router'
 import type { LoginPayload } from '~/types/api'
 
 definePageMeta({ layout: 'auth', middleware: 'guest' })
 useSeoMeta({ title: 'Log in' })
 
 const auth = useAuthStore()
+const organizations = useOrganizationStore()
 const toast = useToast()
 const route = useRoute()
 
@@ -20,11 +22,35 @@ function validate(state: Partial<LoginPayload>): FormError[] {
   return errors
 }
 
+// Someone in several organizations chooses one first. Not for an invitation link:
+// accepting it sets the organization anyway.
+async function afterLogin(redirect: string): Promise<RouteLocationRaw> {
+  try {
+    // The auth plugin only loads organizations on startup, not after this login.
+    await organizations.fetch()
+  }
+  catch (error) {
+    console.error('Could not load organizations', error)
+    return redirect
+  }
+
+  // Already headed to the picker (e.g. it was opened while logged out): don't nest it.
+  if (redirect.startsWith('/select-organization')) {
+    return redirect
+  }
+
+  if (organizations.organizations.length > 1 && !redirect.startsWith('/join/')) {
+    return { path: '/select-organization', query: { redirect } }
+  }
+
+  return redirect
+}
+
 async function onSubmit(event: FormSubmitEvent<LoginPayload>) {
   loading.value = true
   try {
     await auth.login(event.data)
-    await navigateTo(safeRedirect(route.query.redirect))
+    await navigateTo(await afterLogin(safeRedirect(route.query.redirect)))
   }
   catch (error) {
     const fieldErrors = toFormErrors(error)

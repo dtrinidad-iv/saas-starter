@@ -10,7 +10,7 @@ Instead of starting from an empty project, you start from an app that already ha
 
 A quick tour, as a user would see it:
 
-1. **Sign up and get a workspace.** Registering creates your first **organization** (a workspace for your team or company), with you as its Owner. You can create more and switch between them from the sidebar.
+1. **Sign up and get a workspace.** Registering creates your first **organization** (a workspace for your team or company), with you as its Owner. You can create more and switch between them from the sidebar. If you belong to more than one, you choose which to work in when you log in.
 2. **Bring your team.** Invite people by email and give each a role. Use the built-in Owner, Admin and Member roles, or build your own from a list of permissions.
 3. **Work on projects.** Create, search, edit and delete projects. Everyone in the organization sees the same projects; other organizations never do.
 4. **Get help from AI** (Claude):
@@ -199,7 +199,7 @@ Every feature, with its API endpoints and web page. This is the detailed referen
 
 | Feature | API | Web |
 |---|---|---|
-| Register, log in, log out, current user | `POST /api/register`, `/login`, `/logout`, `GET /api/me` | `/register`, `/login` |
+| Register, log in, log out, current user | `POST /api/register`, `/login`, `/logout`, `GET /api/me` | `/register`, `/login`, `/select-organization` (after login, for people in more than one organization) |
 | Organizations: list, create, switch | `GET/POST /api/organizations`, `POST /api/organizations/{id}/switch` | Org switcher in the sidebar |
 | Members: list, change role, remove (at least one owner always remains) | `GET/PATCH/DELETE /api/members` | `/members` |
 | Roles: per-organization roles with permissions; create, edit, delete (not the built-in Owner, nor a role in use). People can only grant what they have | `GET/POST/PATCH/DELETE /api/roles`, `GET /api/permissions` | `/roles` |
@@ -237,6 +237,10 @@ Demo data with real Claude answers (Haiku), light mode.
 ![Ask AI panel with two questions and answers about the project](docs/screenshots/project-chat.png)
 
 ### Team and admin
+
+**Choose an organization** after logging in, for people in more than one.
+
+![Organization picker after login, listing three organizations with the last used one marked](docs/screenshots/select-organization.png)
 
 **Members** and pending invitations, with a role per person.
 
