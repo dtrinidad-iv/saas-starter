@@ -228,6 +228,16 @@ Organization routes act on the user's **current** organization (`users.current_o
 
 Demo data with real Claude answers (Haiku), light mode.
 
+### Platform admin
+
+**Users**: everyone with an account, searchable by name or email.
+
+![Platform admin user search with verified, two-factor and admin badges](docs/screenshots/admin-users.png)
+
+**An organization** as an admin sees it: plan, AI budget, counts and members, no project content.
+
+![Platform admin page of an organization on the Pro plan with its AI budget, counts and members](docs/screenshots/admin-organization.png)
+
 ### Projects and AI
 
 **Projects** in the current organization, with who created them.
@@ -287,20 +297,6 @@ Demo data with real Claude answers (Haiku), light mode.
 **Invoices** for the plan and AI credits, read live from Stripe, with links to Stripe's invoice page and PDF.
 
 ![Invoices page with a Pro subscription invoice and two AI credit invoices, all paid](docs/screenshots/invoices.png)
-
-**Mobile**: the sidebar collapses into a menu.
-
-<img src="docs/screenshots/mobile.png" alt="Project page at phone width" width="300">
-
-### Platform admin
-
-**Users**: everyone with an account, searchable by name or email.
-
-![Platform admin user search with verified, two-factor and admin badges](docs/screenshots/admin-users.png)
-
-**An organization** as an admin sees it: plan, AI budget, counts and members, no project content.
-
-![Platform admin page of an organization on the Pro plan with its AI budget, counts and members](docs/screenshots/admin-organization.png)
 
 ## Project layout
 ```
