@@ -38,8 +38,20 @@ const links = computed<NavigationMenuItem[]>(() => [
     : []),
 ])
 
+// People who run the app (not an organization role), whatever the current organization.
+const adminLinks = computed<NavigationMenuItem[]>(() => auth.user?.is_platform_admin
+  ? [
+      { label: 'Platform admin', type: 'label' },
+      { label: 'Users', icon: 'i-lucide-user-search', to: '/admin/users', active: route.path.startsWith('/admin/users') },
+      { label: 'Organizations', icon: 'i-lucide-building-2', to: '/admin/organizations', active: route.path.startsWith('/admin/organizations') },
+      { label: 'Platform log', icon: 'i-lucide-file-clock', to: '/admin/audit-log', active: route.path.startsWith('/admin/audit-log') },
+    ]
+  : [])
+
 // A collapsed sidebar shows only icons (the label moves to a tooltip), so name each link.
-const navigation = computed(() => links.value.map(item => ({ ...item, 'aria-label': item.label })))
+const named = (items: NavigationMenuItem[]) => items.map(item => (item.type === 'label' ? item : { ...item, 'aria-label': item.label }))
+const navigation = computed(() => named(links.value))
+const adminNavigation = computed(() => named(adminLinks.value))
 </script>
 
 <template>
@@ -74,6 +86,15 @@ const navigation = computed(() => links.value.map(item => ({ ...item, 'aria-labe
           :collapsed="collapsed"
           orientation="vertical"
           tooltip
+        />
+        <UNavigationMenu
+          v-if="adminNavigation.length"
+          :items="adminNavigation"
+          :collapsed="collapsed"
+          orientation="vertical"
+          tooltip
+          aria-label="Platform admin"
+          class="mt-4"
         />
       </template>
 

@@ -58,6 +58,9 @@ const descriptions: Record<Purpose, string> = {
 
 const title = computed(() => titles[step.value][purpose.value])
 const description = computed(() => {
+  if (step.value === 'password' && purpose.value === 'disable' && auth.user?.is_platform_admin) {
+    return `${descriptions.disable} You also stop being a platform admin until someone grants it again.`
+  }
   if (step.value === 'password') return descriptions[purpose.value]
   if (step.value === 'setup') return 'Use an authenticator app such as Google Authenticator, 1Password or Authy, then enter the 6-digit code it shows.'
   return "Each code logs you in once if you lose your phone. They won't be shown again: store them somewhere safe, like a password manager."

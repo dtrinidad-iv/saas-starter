@@ -58,6 +58,8 @@ export interface User {
   email: string
   email_verified: boolean
   two_factor_enabled: boolean
+  /** Runs the app (not an organization role): sees the admin area. */
+  is_platform_admin: boolean
   current_organization: Organization | null
   created_at: string
 }
@@ -325,4 +327,61 @@ export interface InvoiceList {
   data: Invoice[]
   /** Pass as starting_after for the next page; null on the last one. */
   meta: { next_cursor: string | null }
+}
+
+/** A user in the platform admin area. */
+export interface AdminUser {
+  id: number
+  name: string
+  email: string
+  email_verified: boolean
+  two_factor_enabled: boolean
+  is_platform_admin: boolean
+  organizations_count?: number
+  created_at: string
+}
+
+export interface AdminRole {
+  id: number
+  name: string
+  is_owner: boolean
+}
+
+export interface AdminUserDetail extends AdminUser {
+  devices_count: number
+  last_active_at: string | null
+  organizations: { id: number, name: string, role: AdminRole, joined_at: string }[]
+}
+
+export interface AdminOrganization {
+  id: number
+  name: string
+  members_count: number
+  plan: string
+  created_at: string
+}
+
+export interface AdminOrganizationDetail {
+  id: number
+  name: string
+  created_at: string
+  plan: BillingPlan
+  subscription: { status: string, ends_at: string | null, created_at: string } | null
+  ai_budget: AiBudget
+  counts: { members: number, projects: number, pending_invitations: number }
+  members: { id: number, name: string, email: string, role: AdminRole, joined_at: string }[]
+  /** At most this many members are listed; counts.members has them all. */
+  members_limit: number
+}
+
+export interface PlatformAuditLogEntry {
+  id: number
+  action: string
+  action_label: string
+  /** Null for the console (admin:grant / admin:revoke) or a deleted admin. */
+  actor: { id: number, name: string, email: string } | null
+  subject: { type: string, id: number | null, label: string | null } | null
+  metadata: Record<string, unknown>
+  ip_address: string | null
+  created_at: string
 }
