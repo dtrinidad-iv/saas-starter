@@ -253,7 +253,7 @@ Demo data with real Claude answers (Haiku), light mode.
 
 **Acting on a user**: view the app as them, reset their two-factor, sign them out everywhere, or suspend them, each with a reason for the platform log.
 
-![View as user dialog on a user's admin page, with a reason filled in](docs/screenshots/admin-user-actions.png)
+![A user's admin page with the View as user, Reset two-factor, Sign out everywhere and Suspend actions](docs/screenshots/admin-user-actions.png)
 
 **Viewing as a user**: the app as they see it, read-only, with a banner to stop; project content stays hidden.
 
