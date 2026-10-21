@@ -3,15 +3,19 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Billing\BillingOverview;
+use App\Actions\Billing\ListInvoices;
 use App\Actions\Billing\OpenBillingPortal;
 use App\Actions\Billing\StartCreditsCheckout;
 use App\Actions\Billing\StartSubscriptionCheckout;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Billing\ListInvoicesRequest;
 use App\Http\Requests\Billing\StartCheckoutRequest;
 use App\Http\Requests\Billing\StartCreditsCheckoutRequest;
+use App\Http\Resources\InvoiceResource;
 use App\Models\Organization;
 use App\Support\CurrentOrganization;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -50,5 +54,17 @@ class BillingController extends Controller
         Gate::authorize('manageBilling', Organization::class);
 
         return response()->json(['data' => ['url' => $action->handle($currentOrganization->get())]]);
+    }
+
+    /**
+     * The organization's invoices, read live from Stripe, 20 at a time.
+     */
+    public function invoices(ListInvoicesRequest $request, ListInvoices $action, CurrentOrganization $currentOrganization): AnonymousResourceCollection
+    {
+        Gate::authorize('manageBilling', Organization::class);
+
+        $page = $action->handle($currentOrganization->get(), $request->validated('starting_after'));
+
+        return InvoiceResource::collection($page->invoices)->additional(['meta' => ['next_cursor' => $page->nextCursor]]);
     }
 }

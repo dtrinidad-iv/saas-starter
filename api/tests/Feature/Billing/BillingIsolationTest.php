@@ -3,6 +3,7 @@
 use App\Ai\AiBudget;
 use App\Enums\AuditAction;
 use App\Enums\DefaultRole;
+use App\Models\AiCreditPurchase;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
@@ -128,4 +129,56 @@ it('starts a credits checkout only for its own organization', function () {
     expect($this->billing->creditCheckouts())->toBe([
         ['organization_id' => $this->orgA->id, 'user_id' => $this->ownerA->id, 'pack' => 'credits_10'],
     ]);
+});
+
+it('lists only its own organization\'s invoices, whatever organization the request names', function () {
+    subscribe($this->orgA);
+    $this->billing->setInvoices($this->orgA, [invoice('in_a1')]);
+    $this->billing->setInvoices($this->orgB, [invoice('in_b2'), invoice('in_b1')]);
+
+    $this->getJson("/api/billing/invoices?organization_id={$this->orgB->id}")
+        ->assertOk()
+        ->assertJsonPath('data.*.id', ['in_a1']);
+
+    // Another organization's invoice id as the cursor pages through org A's own invoices.
+    $this->getJson('/api/billing/invoices?starting_after=in_b2')
+        ->assertOk()
+        ->assertJsonPath('data', []);
+
+    expect(array_column($this->billing->invoiceRequests(), 'organization_id'))->toBe([$this->orgA->id, $this->orgA->id]);
+});
+
+it('shows no invoices of another organization to one that never paid', function () {
+    $this->billing->setInvoices($this->orgB, [invoice('in_b1')]);
+
+    $this->getJson('/api/billing/invoices')->assertOk()->assertJsonPath('data', []);
+
+    expect($this->billing->invoiceRequests())->toBe([]);
+});
+
+it('builds the fake provider\'s demo invoices from its own organization only', function () {
+    $subscriptionA = subscribe($this->orgA);
+    inOrganization($this->orgB, fn () => AiCreditPurchase::query()->forceCreate([
+        'pack' => 'credits_10',
+        'amount_usd' => 10,
+        'stripe_checkout_session_id' => 'cs_test_b',
+    ]));
+
+    $this->getJson('/api/billing/invoices')
+        ->assertOk()
+        ->assertJsonPath('data.*.id', ["in_fake_sub_{$subscriptionA->id}"]);
+});
+
+it('follows the current organization for a member of both', function () {
+    subscribe($this->orgA);
+    $this->orgB->members()->attach($this->ownerA, ['role_id' => roleOf($this->orgB, DefaultRole::Owner)->id]);
+    $this->billing->setInvoices($this->orgA, [invoice('in_a1')]);
+    $this->billing->setInvoices($this->orgB, [invoice('in_b1')]);
+
+    $this->getJson('/api/billing/invoices')->assertOk()->assertJsonPath('data.*.id', ['in_a1']);
+
+    $this->postJson("/api/organizations/{$this->orgB->id}/switch")->assertOk();
+    $this->getJson('/api/billing/invoices')->assertOk()->assertJsonPath('data.*.id', ['in_b1']);
+
+    expect(array_column($this->billing->invoiceRequests(), 'organization_id'))->toBe([$this->orgA->id, $this->orgB->id]);
 });

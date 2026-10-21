@@ -1,5 +1,6 @@
 <?php
 
+use App\Billing\Invoice;
 use App\Enums\ChatMessageRole;
 use App\Enums\ChatMessageStatus;
 use App\Enums\DefaultRole;
@@ -16,6 +17,7 @@ use App\Models\Role;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\User;
 use App\Support\CurrentOrganization;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -370,4 +372,24 @@ function stripeCreditsSession(Organization $organization, ?User $user = null, ar
         'amount_total' => 1000,
         'metadata' => ['pack' => 'credits_10', 'user_id' => $user === null ? null : (string) $user->id],
     ], $attributes);
+}
+
+/**
+ * An invoice for FakeBillingGateway::setInvoices(): a paid $19 Pro invoice unless overridden.
+ *
+ * @param  array<string, mixed>  $attributes  constructor arguments of App\Billing\Invoice
+ */
+function invoice(string $id, array $attributes = []): Invoice
+{
+    return new Invoice(...array_merge([
+        'id' => $id,
+        'number' => 'ACME-0001',
+        'status' => 'paid',
+        'total' => 1900,
+        'currency' => 'usd',
+        'createdAt' => CarbonImmutable::parse('2026-10-01 12:00:00', 'UTC'),
+        'description' => 'Pro',
+        'hostedUrl' => 'https://invoice.stripe.com/i/acct_1/test_1',
+        'pdfUrl' => 'https://pay.stripe.com/invoice/acct_1/test_1/pdf',
+    ], $attributes));
 }

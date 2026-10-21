@@ -4,6 +4,7 @@ namespace App\Billing\Contracts;
 
 use App\Billing\CreditPack;
 use App\Billing\Exceptions\BillingUnavailable;
+use App\Billing\InvoicePage;
 use App\Billing\Plan;
 use App\Models\Organization;
 use App\Models\User;
@@ -39,4 +40,13 @@ interface BillingGateway
      * @throws BillingUnavailable
      */
     public function portalUrl(Organization $organization, string $returnUrl): string;
+
+    /**
+     * A page of the organization's invoices, newest first, without drafts. Only
+     * for an organization that is already a customer. $startingAfter is the
+     * previous page's next cursor.
+     *
+     * @throws BillingUnavailable
+     */
+    public function invoices(Organization $organization, int $limit, ?string $startingAfter): InvoicePage;
 }
