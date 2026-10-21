@@ -57,11 +57,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/ai-budget', [AiUsageController::class, 'updateBudget'])->middleware('throttle:20,1');
 
         Route::get('/billing', [BillingController::class, 'show']);
-        Route::post('/billing/checkout', [BillingController::class, 'checkout'])->middleware('throttle:20,1');
-        Route::post('/billing/credits/checkout', [BillingController::class, 'creditsCheckout'])->middleware('throttle:20,1');
-        Route::post('/billing/portal', [BillingController::class, 'portal'])->middleware('throttle:20,1');
-        // Each call reads from Stripe.
-        Route::get('/billing/invoices', [BillingController::class, 'invoices'])->middleware('throttle:30,1');
+        // These call Stripe: limited per user and per organization (AppServiceProvider).
+        Route::post('/billing/checkout', [BillingController::class, 'checkout'])->middleware('throttle:stripe');
+        Route::post('/billing/credits/checkout', [BillingController::class, 'creditsCheckout'])->middleware('throttle:stripe');
+        Route::post('/billing/portal', [BillingController::class, 'portal'])->middleware('throttle:stripe');
+        Route::get('/billing/invoices', [BillingController::class, 'invoices'])->middleware('throttle:stripe');
 
         Route::apiResource('projects', ProjectController::class)->whereNumber('project');
 

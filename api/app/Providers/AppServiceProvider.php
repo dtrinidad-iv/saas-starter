@@ -11,6 +11,7 @@ use App\Ai\Contracts\AiClient;
 use App\Billing\Contracts\BillingGateway;
 use App\Billing\FakeBillingGateway;
 use App\Billing\StripeBillingGateway;
+use App\Enums\Permission;
 use App\Jobs\OrganizationJob;
 use App\Models\Organization;
 use App\Support\CurrentOrganization;
@@ -103,6 +104,27 @@ class AppServiceProvider extends ServiceProvider
                 ->response(fn () => response()->json([
                     'message' => 'Too many AI requests for this organization. Try again in a minute.',
                 ], 429));
+        });
+
+        // Billing routes that call Stripe. Stripe's rate limit is for the whole account,
+        // so besides each user, an organization (however many owners it has) is capped too.
+        // Only people who can manage billing count toward the organization's limit: the
+        // throttle runs before the policy, and others' 403s must not lock the owners out.
+        RateLimiter::for('stripe', function (Request $request) {
+            $limits = [
+                Limit::perMinute(20)->by('stripe:user:'.$request->user()?->id)->response(fn () => response()->json([
+                    'message' => 'Too many billing requests. Try again in a minute.',
+                ], 429)),
+            ];
+
+            $organization = app(CurrentOrganization::class);
+            if ($organization->id() !== null && $organization->can(Permission::BillingManage)) {
+                $limits[] = Limit::perMinute(60)->by('stripe:org:'.$organization->id())->response(fn () => response()->json([
+                    'message' => 'Too many billing requests for this organization. Try again in a minute.',
+                ], 429));
+            }
+
+            return $limits;
         });
     }
 }

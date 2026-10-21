@@ -48,6 +48,7 @@
 ## Billing conventions
 - Stripe through Laravel Cashier. The **organization** is the billable (`Cashier::useCustomerModel`); billing endpoints act on the current organization and need `billing.manage`.
 - Code against `App\Billing\Contracts\BillingGateway` (`StripeBillingGateway`, or `FakeBillingGateway` with `BILLING_PROVIDER=fake`). Payments happen on Stripe's hosted pages (Checkout, Customer Portal); never handle card data. Tests use `$this->billing` (the fake) and never call Stripe.
+- Routes that call Stripe use `throttle:stripe` (`AppServiceProvider`): 20 a minute per user, and 60 per organization counted only for people with `billing.manage`, so others' 403s can't lock owners out.
 - Invoices are read live from Stripe (`BillingGateway::invoices`), never stored. Only `https` links on `stripe.com` hosts are passed to the client. In tests, `$this->billing->setInvoices()`; with `BILLING_PROVIDER=fake`, demo invoices come from the organization's subscriptions and credit purchases.
 - Plans live in `config/billing.php`; `App\Billing\Plans::for()` says which one an organization is on. The client sends a plan key, never a price id or amount.
 - Only the webhook (`POST /api/stripe/webhook`, `StripeWebhookController`) changes subscriptions; success redirects only refetch. `VerifyStripeWebhook` always checks the signature and refuses everything without `STRIPE_WEBHOOK_SECRET`. Make webhook handling idempotent (Stripe retries).
