@@ -25,6 +25,8 @@
 - Use Form Requests for validation and API Resources for responses.
 - Migrations only. Never edit an existing migration that has been committed; add a new one.
 - Do not edit `.env`. Add new keys to `.env.example` with a comment.
+- Features that reach other people or cost money (invitations, joining, billing, AI) use the `verified` middleware (403 `email_unverified`). Account endpoints (`/api/account*`) act on the user, never an organization.
+- Email links point at Nuxt (`config('app.frontend_url')`), which posts them back to the API. The verification link is signed relative to the API (`signed:relative`). Each group of `throttle:6,1` routes has its own prefix (e.g. `throttle:6,1,account`) so they don't share a counter.
 
 ## Frontend conventions
 - Use `<script setup lang="ts">` and Nuxt UI components before writing custom ones.

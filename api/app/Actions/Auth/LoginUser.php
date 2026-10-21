@@ -8,6 +8,8 @@ use Illuminate\Validation\ValidationException;
 
 class LoginUser
 {
+    public function __construct(private readonly IssueToken $issueToken) {}
+
     /**
      * Verify credentials and issue a new API token.
      *
@@ -27,8 +29,6 @@ class LoginUser
             ]);
         }
 
-        $token = $user->createToken($data['device_name'] ?? 'api')->plainTextToken;
-
-        return ['user' => $user, 'token' => $token];
+        return ['user' => $user, 'token' => $this->issueToken->handle($user, $data['device_name'] ?? null)];
     }
 }

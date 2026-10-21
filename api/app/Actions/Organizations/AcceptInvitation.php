@@ -28,11 +28,13 @@ class AcceptInvitation
     public function handle(User $user, string $token): Organization
     {
         return DB::transaction(function () use ($user, $token) {
-            $invitation = OrganizationInvitation::findByToken($token, lock: true);
+            // Lock the organization before the invitation, like DeleteAccount (organization,
+            // then its invitations through the cascade): joining can't race its deletion.
+            $organizationId = OrganizationInvitation::findByToken($token)?->organization_id;
+            $organization = $organizationId === null ? null : Organization::query()->lockForUpdate()->find($organizationId);
+            $invitation = $organization === null ? null : OrganizationInvitation::findByToken($token, lock: true);
 
             static::ensureUsableBy($invitation, $user);
-
-            $organization = Organization::findOrFail($invitation->organization_id);
 
             // Already a member (e.g. added another way): keep the existing role.
             if (! $user->isMemberOf($organization)) {

@@ -8,10 +8,14 @@ use Illuminate\Support\Facades\DB;
 
 class RegisterUser
 {
-    public function __construct(private readonly CreateOrganization $createOrganization) {}
+    public function __construct(
+        private readonly CreateOrganization $createOrganization,
+        private readonly IssueToken $issueToken,
+    ) {}
 
     /**
-     * Create a user with a personal organization and issue their first API token.
+     * Create a user with a personal organization, send the email verification link
+     * and issue their first API token.
      *
      * @param  array{name: string, email: string, password: string, device_name?: string|null}  $data
      * @return array{user: User, token: string}
@@ -30,8 +34,8 @@ class RegisterUser
             return $user;
         });
 
-        $token = $user->createToken($data['device_name'] ?? 'api')->plainTextToken;
+        $user->sendEmailVerificationNotification();
 
-        return ['user' => $user, 'token' => $token];
+        return ['user' => $user, 'token' => $this->issueToken->handle($user, $data['device_name'] ?? null)];
     }
 }
