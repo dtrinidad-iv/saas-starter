@@ -26,6 +26,7 @@ class AdminUserResource extends JsonResource
             'email_verified' => $this->hasVerifiedEmail(),
             'two_factor_enabled' => $this->hasTwoFactorEnabled(),
             'is_platform_admin' => $this->isPlatformAdmin(),
+            'suspended_at' => $this->suspended_at,
             'organizations_count' => $this->whenCounted('organizations'),
             'created_at' => $this->created_at,
         ];

@@ -26,6 +26,7 @@ use LogicException;
  * @property array<string, array{old: mixed, new: mixed}>|null $changes
  * @property array<string, mixed>|null $metadata
  * @property string|null $ip_address
+ * @property bool $by_platform_admin A platform admin did it (no actor or IP stored).
  * @property Carbon $created_at
  */
 class AuditLog extends Model
@@ -47,6 +48,7 @@ class AuditLog extends Model
             'action' => AuditAction::class,
             'changes' => 'array',
             'metadata' => 'array',
+            'by_platform_admin' => 'boolean',
         ];
     }
 

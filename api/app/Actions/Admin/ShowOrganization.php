@@ -28,11 +28,12 @@ class ShowOrganization
      * One organization for a platform admin: plan, AI budget, counts and members,
      * never project content. It isn't the admin's current organization, so the
      * tenant-owned counts name it explicitly instead of using the scope.
-     * Recorded in the platform log.
+     * Recorded in the platform log, unless it's the page refreshed after an action
+     * ($record false: the action has its own entry).
      *
      * @return array{organization: Organization, plan: array<string, mixed>, subscription: array<string, mixed>|null, ai_budget: array<string, mixed>, counts: array<string, int>, members: Collection<int, User>}
      */
-    public function handle(Organization $organization): array
+    public function handle(Organization $organization, bool $record = true): array
     {
         $organization->load('subscriptions');
 
@@ -45,11 +46,13 @@ class ShowOrganization
 
         $subscription = $organization->subscriptions->sortByDesc('id')->first();
 
-        $this->recordAudit->handle(PlatformAuditAction::OrganizationViewed, [
-            'type' => 'organization',
-            'id' => $organization->id,
-            'label' => $organization->name,
-        ]);
+        if ($record) {
+            $this->recordAudit->handle(PlatformAuditAction::OrganizationViewed, [
+                'type' => 'organization',
+                'id' => $organization->id,
+                'label' => $organization->name,
+            ]);
+        }
 
         return [
             'organization' => $organization,

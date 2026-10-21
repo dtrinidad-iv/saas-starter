@@ -60,6 +60,11 @@ class CompleteTwoFactorChallenge
                     $this->expire($challenge);
                 }
 
+                // Suspended after the password step.
+                if ($user->isSuspended()) {
+                    $this->expire($challenge, User::SUSPENDED_MESSAGE);
+                }
+
                 if ($recoveryCode !== null) {
                     $remaining = $this->useRecoveryCode($user, $recoveryCode);
                 } else {

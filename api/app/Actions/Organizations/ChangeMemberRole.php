@@ -27,6 +27,8 @@ class ChangeMemberRole
     public function handle(Organization $organization, User $member, Role $role): User
     {
         DB::transaction(function () use ($organization, $member, $role) {
+            $this->lockOrganization($organization);
+
             if ($member->membership->role->is_owner && ! $role->is_owner) {
                 $this->ensureAnotherOwner($organization, $member, 'role_id');
             }

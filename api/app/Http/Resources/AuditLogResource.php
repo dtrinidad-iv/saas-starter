@@ -27,6 +27,8 @@ class AuditLogResource extends JsonResource
             'action' => $this->action->value,
             'action_label' => $this->action->label(),
             'actor' => $this->whenLoaded('actor', fn () => $this->actor?->only(['id', 'name'])),
+            // A platform admin did it: there's no actor, and the client shows "Platform admin".
+            'by_platform_admin' => $this->by_platform_admin,
             'subject' => $this->subject_type === null ? null : [
                 'type' => $this->subject_type,
                 'id' => $this->subject_id,

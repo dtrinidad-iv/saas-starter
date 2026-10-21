@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -20,6 +21,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $two_factor_secret Base32 TOTP secret (encrypted at rest).
  * @property list<string>|null $two_factor_recovery_codes sha256 hashes of the unused recovery codes.
  * @property bool $is_platform_admin Not fillable: only `admin:grant` / `admin:revoke` change it.
+ * @property Carbon|null $suspended_at Not fillable: only SuspendUser / UnsuspendUser change it.
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_last_used_step'])]
@@ -27,6 +29,9 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
+
+    /** What login, the two-factor challenge and password reset say to a suspended user. */
+    public const SUSPENDED_MESSAGE = 'This account is suspended. Contact support.';
 
     /**
      * Get the attributes that should be cast.
@@ -43,6 +48,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_confirmed_at' => 'datetime',
             'two_factor_last_used_step' => 'integer',
             'is_platform_admin' => 'boolean',
+            'suspended_at' => 'datetime',
         ];
     }
 
@@ -103,6 +109,15 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isPlatformAdmin(): bool
     {
         return $this->is_platform_admin === true;
+    }
+
+    /**
+     * Suspended by a platform admin: can't log in, finish a challenge, reset the
+     * password or use a token (AppServiceProvider) until unsuspended.
+     */
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
     }
 
     /**

@@ -30,6 +30,8 @@ class RemoveMember
     public function handle(Organization $organization, User $member): void
     {
         DB::transaction(function () use ($organization, $member) {
+            $this->lockOrganization($organization);
+
             if ($member->membership->role->is_owner) {
                 $this->ensureAnotherOwner($organization, $member, 'member');
             }

@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
 use Laravel\Cashier\Cashier;
+use Laravel\Sanctum\PersonalAccessToken;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -87,6 +89,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // A suspended user's tokens are deleted when they're suspended; this also
+        // refuses one issued in a race with that (401, like a revoked token).
+        Sanctum::authenticateAccessTokensUsing(
+            fn (PersonalAccessToken $token, bool $isValid) => $isValid
+                && ! ($token->tokenable instanceof User && $token->tokenable->isSuspended()),
+        );
+
         // AI calls per organization: the route middleware (throttle:ai) counts requests
         // from the UI, the job middleware (RateLimited('ai')) counts calls to the
         // provider. Separate keys, so one click isn't counted twice.

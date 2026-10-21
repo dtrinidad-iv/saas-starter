@@ -8,6 +8,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -33,4 +34,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // A wrong method on an admin route (GET on a POST-only one) would answer 405 and
+        // name the supported methods, before any middleware runs: answer the same 404 as
+        // an unknown route, so the area isn't revealed (see EnsurePlatformAdmin).
+        $exceptions->map(MethodNotAllowedHttpException::class, fn (MethodNotAllowedHttpException $exception) => request()->is('api/admin', 'api/admin/*')
+            ? EnsurePlatformAdmin::notFound(request())
+            : $exception);
     })->create();

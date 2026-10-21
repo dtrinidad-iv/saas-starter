@@ -12,9 +12,10 @@ class ShowUser
 
     /**
      * One user for a platform admin: their organizations with the role in each,
-     * and how many devices are signed in. Recorded in the platform log.
+     * and how many devices are signed in. Recorded in the platform log, unless it's
+     * the page refreshed after an action ($record false: the action has its own entry).
      */
-    public function handle(User $user): User
+    public function handle(User $user, bool $record = true): User
     {
         $user->load(['organizations' => fn ($query) => $query->orderBy('organizations.name')]);
         Membership::loadRoles($user->organizations);
@@ -22,11 +23,13 @@ class ShowUser
         $user->loadCount('tokens');
         $user->loadMax('tokens', 'last_used_at');
 
-        $this->recordAudit->handle(PlatformAuditAction::UserViewed, [
-            'type' => 'user',
-            'id' => $user->id,
-            'label' => $user->email,
-        ]);
+        if ($record) {
+            $this->recordAudit->handle(PlatformAuditAction::UserViewed, [
+                'type' => 'user',
+                'id' => $user->id,
+                'label' => $user->email,
+            ]);
+        }
 
         return $user;
     }

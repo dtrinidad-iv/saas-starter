@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\OrganizationController as AdminOrganizationController;
+use App\Http\Controllers\Api\Admin\OrganizationOwnerController as AdminOrganizationOwnerController;
+use App\Http\Controllers\Api\Admin\UserActionController as AdminUserActionController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AiUsageController;
 use App\Http\Controllers\Api\AuditLogController;
@@ -24,7 +26,9 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\TwoFactorChallengeController;
 use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\VerifyStripeWebhook;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:6,1');
@@ -34,6 +38,11 @@ Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->m
 Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:6,1,password-reset');
 // The second step of login or reset when two-factor is on (the challenge they returned).
 Route::post('/two-factor-challenge', [TwoFactorChallengeController::class, 'store'])->middleware('throttle:6,1,two-factor');
+
+// The router answers a plain OPTIONS on a known path with 200 and an Allow header, which
+// would show which admin routes exist: answer 404, as for an unknown route. (CORS
+// preflights are answered before routing, by HandleCors.)
+Route::options('/admin/{path?}', fn (Request $request) => throw EnsurePlatformAdmin::notFound($request))->where('path', '.*');
 
 // From Stripe, not the app: no user, authenticated by the payload signature.
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])->middleware(['throttle:120,1', VerifyStripeWebhook::class]);
@@ -70,7 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/join/{token}', [JoinController::class, 'show']);
     Route::post('/join/{token}', [JoinController::class, 'store'])->middleware(['throttle:20,1', 'verified']);
 
-    // Platform admins (not an organization role): read-only lookups across organizations.
+    // Platform admins (not an organization role): lookups across organizations, and actions.
     // Non-admins get 404 (the 'admin' limiter doesn't count them, and verified runs after),
     // so nothing tells them the area exists; admins need two-factor and a recent code.
     Route::prefix('admin')->middleware(['throttle:admin', 'platform-admin', 'verified'])->group(function () {
@@ -79,6 +88,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/organizations', [AdminOrganizationController::class, 'index']);
         Route::get('/organizations/{organization}', [AdminOrganizationController::class, 'show'])->whereNumber('organization');
         Route::get('/audit-log', [AdminAuditLogController::class, 'index']);
+
+        // Actions take a reason and need a fresher code than lookups.
+        Route::middleware('platform-admin:action')->group(function () {
+            Route::post('/users/{user}/two-factor/reset', [AdminUserActionController::class, 'resetTwoFactor'])->whereNumber('user');
+            Route::post('/users/{user}/sign-out', [AdminUserActionController::class, 'signOut'])->whereNumber('user');
+            Route::post('/users/{user}/suspend', [AdminUserActionController::class, 'suspend'])->whereNumber('user');
+            Route::post('/users/{user}/unsuspend', [AdminUserActionController::class, 'unsuspend'])->whereNumber('user');
+            Route::post('/organizations/{organization}/owners', [AdminOrganizationOwnerController::class, 'store'])->whereNumber('organization');
+        });
     });
 
     // Everything below acts on the current organization. Features that reach other

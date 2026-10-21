@@ -21,15 +21,23 @@ class ResetUserPassword
      * @param  array{email: string, token: string, password: string}  $data
      * @return array{user: User, token: string}|array{two_factor: true, challenge: string}
      *
-     * @throws ValidationException invalid or expired token, or unknown email
+     * @throws ValidationException invalid or expired token, unknown email, or a suspended account
      */
     public function handle(array $data): array
     {
         $resetUser = null;
+        $suspended = false;
 
         $status = Password::broker()->reset(
             ['email' => $data['email'], 'token' => $data['token'], 'password' => $data['password']],
-            function (User $user, string $password) use (&$resetUser) {
+            function (User $user, string $password) use (&$resetUser, &$suspended) {
+                // A link sent before the suspension: used up, nothing changed.
+                if ($user->isSuspended()) {
+                    $suspended = true;
+
+                    return;
+                }
+
                 $user->forceFill(['password' => $password, 'remember_token' => null]);
                 if (! $user->hasVerifiedEmail()) {
                     $user->email_verified_at = now();
@@ -40,6 +48,11 @@ class ResetUserPassword
                 $resetUser = $user;
             },
         );
+
+        // Only reached with a valid link, so it doesn't reveal the account to anyone else.
+        if ($suspended) {
+            throw ValidationException::withMessages(['email' => [User::SUSPENDED_MESSAGE]]);
+        }
 
         if ($status !== Password::PASSWORD_RESET || $resetUser === null) {
             // Same message for an unknown email and a bad token.

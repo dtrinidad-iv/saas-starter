@@ -31,6 +31,8 @@ class RecordAudit
      * @param  Organization|null  $organization  when not acting in it as the current organization
      *                                           (e.g. joining or creating one); defaults to the current one
      * @param  User|null  $actor  defaults to the logged-in user (none in jobs)
+     * @param  bool  $byPlatformAdmin  a platform admin did it: stored without the actor or IP,
+     *                                 so the organization sees that support did it but not who
      */
     public function handle(
         AuditAction $action,
@@ -39,9 +41,15 @@ class RecordAudit
         array $metadata = [],
         ?Organization $organization = null,
         ?User $actor = null,
+        bool $byPlatformAdmin = false,
     ): AuditLog {
         $user = $this->auth->guard()->user();
         $actor ??= $user instanceof User ? $user : null;
+
+        if ($byPlatformAdmin) {
+            $actor = null;
+            $user = null;
+        }
 
         $entry = (new AuditLog)->forceFill([
             'actor_id' => $actor?->id,
@@ -53,6 +61,7 @@ class RecordAudit
             'metadata' => $metadata ?: null,
             // Only for something a logged-in user did in this request, not jobs or console.
             'ip_address' => $user instanceof User ? $this->request->ip() : null,
+            'by_platform_admin' => $byPlatformAdmin,
         ]);
 
         // organization_id is set by BelongsToOrganization from the current organization.
