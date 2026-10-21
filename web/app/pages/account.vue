@@ -219,7 +219,7 @@ async function deleteAccount(event: FormSubmitEvent<DeleteState>) {
         Account settings
       </h1>
       <p class="text-sm text-muted">
-        Your own profile, login and devices, in every organization.
+        Your own profile, login, two-factor and devices, in every organization.
       </p>
     </div>
 
@@ -371,6 +371,8 @@ async function deleteAccount(event: FormSubmitEvent<DeleteState>) {
         />
       </UForm>
     </UPageCard>
+
+    <TwoFactorSettings @enabled="refreshDevices" />
 
     <UPageCard
       title="Devices"

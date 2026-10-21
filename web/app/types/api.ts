@@ -57,6 +57,7 @@ export interface User {
   name: string
   email: string
   email_verified: boolean
+  two_factor_enabled: boolean
   current_organization: Organization | null
   created_at: string
 }
@@ -64,6 +65,23 @@ export interface User {
 export interface AuthResponse {
   user: User
   token: string
+}
+
+/** Login or password reset when two-factor is on: swap the challenge for a token with a code. */
+export interface TwoFactorChallengeResponse {
+  two_factor: true
+  challenge: string
+}
+
+export type LoginResponse = AuthResponse | TwoFactorChallengeResponse
+
+/** A code from the authenticator app, or a recovery code instead. */
+export type TwoFactorChallengePayload = { code: string } | { recovery_code: string }
+
+/** A started two-factor setup: what the authenticator app needs. */
+export interface TwoFactorSetup {
+  secret: string
+  otpauth_uri: string
 }
 
 export interface RegisterPayload {

@@ -1,6 +1,6 @@
 import { defineStore, getActivePinia, skipHydrate } from 'pinia'
 import type { RouteLocationRaw } from 'vue-router'
-import type { AuthResponse, LoginPayload, Organization, RegisterPayload, ResetPasswordPayload, User } from '~/types/api'
+import type { AuthResponse, LoginPayload, LoginResponse, Organization, RegisterPayload, ResetPasswordPayload, TwoFactorChallengePayload, User } from '~/types/api'
 
 export const useAuthStore = defineStore('auth', () => {
   // The Pinia instance of this request. Other stores are looked up through it, because
@@ -41,15 +41,30 @@ export const useAuthStore = defineStore('auth', () => {
     setSession(await api<AuthResponse>('/api/register', { method: 'POST', body: payload }))
   }
 
-  async function login(payload: LoginPayload) {
-    const api = useApi()
-    setSession(await api<AuthResponse>('/api/login', { method: 'POST', body: payload }))
+  // Logged in, or (two-factor on) the challenge to send with a code to completeTwoFactor.
+  function startSession(response: LoginResponse): string | null {
+    if ('two_factor' in response) {
+      return response.challenge
+    }
+    setSession(response)
+    return null
   }
 
-  // A reset signs out every device and logs in with a new token.
-  async function resetPassword(payload: ResetPasswordPayload) {
+  /** Returns the two-factor challenge when the API asks for a code, otherwise null (logged in). */
+  async function login(payload: LoginPayload): Promise<string | null> {
     const api = useApi()
-    setSession(await api<AuthResponse>('/api/reset-password', { method: 'POST', body: payload }))
+    return startSession(await api<LoginResponse>('/api/login', { method: 'POST', body: payload }))
+  }
+
+  // A reset signs out every device and logs in with a new token (after a code, with two-factor on).
+  async function resetPassword(payload: ResetPasswordPayload): Promise<string | null> {
+    const api = useApi()
+    return startSession(await api<LoginResponse>('/api/reset-password', { method: 'POST', body: payload }))
+  }
+
+  async function completeTwoFactor(challenge: string, payload: TwoFactorChallengePayload) {
+    const api = useApi()
+    setSession(await api<AuthResponse>('/api/two-factor-challenge', { method: 'POST', body: { ...payload, challenge } }))
   }
 
   // After an account change the API returned (name, email, verification).
@@ -99,5 +114,5 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // skipHydrate: keep the live cookie ref instead of replacing it with the SSR payload value.
-  return { token: skipHydrate(token), user, isLoggedIn, register, login, resetPassword, logout, fetchMe, setUser, clearSession, setCurrentOrganization }
+  return { token: skipHydrate(token), user, isLoggedIn, register, login, resetPassword, completeTwoFactor, logout, fetchMe, setUser, clearSession, setCurrentOrganization }
 })

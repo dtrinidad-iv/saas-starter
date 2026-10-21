@@ -18,6 +18,18 @@ const form = useTemplateRef<Form<ResetState>>('form')
 const state = reactive<ResetState>({ password: '', password_confirmation: '' })
 const loading = ref(false)
 const linkError = ref<string | null>(null)
+// With two-factor on, the password is changed but logging in still needs a code.
+const challenge = ref<string | null>(null)
+
+async function loggedIn() {
+  toast.add({ title: 'Password changed', description: "You're logged in, and signed out everywhere else.", color: 'success' })
+  await navigateTo(await afterLogin('/'))
+}
+
+async function toLogin() {
+  toast.add({ title: 'Password changed', description: 'Log in with your new password and a code from your app.', color: 'neutral' })
+  await navigateTo('/login')
+}
 
 function validate(state: Partial<ResetState>): FormError[] {
   const errors: FormError[] = []
@@ -34,9 +46,10 @@ async function onSubmit(event: FormSubmitEvent<ResetState>) {
   loading.value = true
   linkError.value = null
   try {
-    await auth.resetPassword({ ...event.data, token: token.value, email: email.value })
-    toast.add({ title: 'Password changed', description: "You're logged in, and signed out everywhere else.", color: 'success' })
-    await navigateTo(await afterLogin('/'))
+    challenge.value = await auth.resetPassword({ ...event.data, token: token.value, email: email.value })
+    if (!challenge.value) {
+      await loggedIn()
+    }
   }
   catch (error) {
     const fieldErrors = toFormErrors(error)
@@ -74,6 +87,25 @@ async function onSubmit(event: FormSubmitEvent<ResetState>) {
       title="This link is incomplete"
       description="Open the link from the email again, or ask for a new one."
     />
+
+    <div
+      v-else-if="challenge"
+      class="space-y-4"
+    >
+      <UAlert
+        color="success"
+        variant="subtle"
+        icon="i-lucide-check"
+        title="Your password was changed"
+        description="Two-factor authentication is on, so logging in still needs a code."
+      />
+      <TwoFactorChallengeForm
+        :challenge="challenge"
+        @success="loggedIn"
+        @expired="toLogin()"
+        @back="toLogin()"
+      />
+    </div>
 
     <div
       v-else
@@ -133,7 +165,10 @@ async function onSubmit(event: FormSubmitEvent<ResetState>) {
       </UForm>
     </div>
 
-    <template #footer>
+    <template
+      v-if="!challenge"
+      #footer
+    >
       <p class="text-center text-sm text-muted">
         <ULink
           to="/forgot-password"

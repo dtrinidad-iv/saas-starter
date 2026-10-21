@@ -13,6 +13,19 @@ const route = useRoute()
 const form = useTemplateRef<Form<LoginPayload>>('form')
 const state = reactive<LoginPayload>({ email: '', password: '' })
 const loading = ref(false)
+// Set when the password was right and two-factor is on: the second step shows.
+const challenge = ref<string | null>(null)
+const expiredMessage = ref<string | null>(null)
+
+async function finish() {
+  await navigateTo(await afterLogin(safeRedirect(route.query.redirect)))
+}
+
+function restart(message: string | null = null) {
+  challenge.value = null
+  state.password = ''
+  expiredMessage.value = message
+}
 
 function validate(state: Partial<LoginPayload>): FormError[] {
   const errors: FormError[] = []
@@ -23,9 +36,12 @@ function validate(state: Partial<LoginPayload>): FormError[] {
 
 async function onSubmit(event: FormSubmitEvent<LoginPayload>) {
   loading.value = true
+  expiredMessage.value = null
   try {
-    await auth.login(event.data)
-    await navigateTo(await afterLogin(safeRedirect(route.query.redirect)))
+    challenge.value = await auth.login(event.data)
+    if (!challenge.value) {
+      await finish()
+    }
   }
   catch (error) {
     const fieldErrors = toFormErrors(error)
@@ -46,17 +62,35 @@ async function onSubmit(event: FormSubmitEvent<LoginPayload>) {
   <UCard>
     <template #header>
       <h1 class="text-xl font-semibold">
-        Log in
+        {{ challenge ? 'Two-factor authentication' : 'Log in' }}
       </h1>
     </template>
 
+    <TwoFactorChallengeForm
+      v-if="challenge"
+      :challenge="challenge"
+      @success="finish"
+      @expired="restart"
+      @back="restart()"
+    />
+
     <UForm
+      v-else
       ref="form"
       :state="state"
       :validate="validate"
       class="space-y-4"
       @submit="onSubmit"
     >
+      <UAlert
+        v-if="expiredMessage"
+        color="warning"
+        variant="subtle"
+        icon="i-lucide-clock"
+        :title="expiredMessage"
+        role="alert"
+      />
+
       <UFormField
         label="Email"
         name="email"
@@ -97,7 +131,10 @@ async function onSubmit(event: FormSubmitEvent<LoginPayload>) {
       />
     </UForm>
 
-    <template #footer>
+    <template
+      v-if="!challenge"
+      #footer
+    >
       <p class="text-center text-sm text-muted">
         No account yet?
         <ULink
