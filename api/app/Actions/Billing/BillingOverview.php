@@ -3,6 +3,8 @@
 namespace App\Actions\Billing;
 
 use App\Ai\AiBudget;
+use App\Billing\CreditPack;
+use App\Billing\CreditPacks;
 use App\Billing\Plan;
 use App\Billing\Plans;
 use App\Models\Organization;
@@ -15,6 +17,7 @@ class BillingOverview
 {
     public function __construct(
         private readonly Plans $plans,
+        private readonly CreditPacks $packs,
         private readonly AiBudget $budget,
     ) {}
 
@@ -39,6 +42,7 @@ class BillingOverview
             ],
             'has_billing_account' => $organization->hasStripeId(),
             'plans' => array_values(array_map(fn (Plan $plan) => $plan->toArray(), $this->plans->all())),
+            'credit_packs' => array_values(array_map(fn (CreditPack $pack) => $pack->toArray(), $this->packs->all())),
             'ai_budget' => $this->budget->summary($organization),
         ];
     }

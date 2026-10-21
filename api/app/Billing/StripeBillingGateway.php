@@ -30,6 +30,23 @@ class StripeBillingGateway implements BillingGateway
         });
     }
 
+    public function creditsCheckoutUrl(Organization $organization, User $user, CreditPack $pack, string $successUrl, string $cancelUrl): string
+    {
+        return $this->call(function () use ($organization, $user, $pack, $successUrl, $cancelUrl) {
+            $this->ensureCustomer($organization, $user);
+
+            return $organization->checkout([$pack->priceId => 1], [
+                'mode' => 'payment',
+                'success_url' => $successUrl,
+                'cancel_url' => $cancelUrl,
+                'client_reference_id' => (string) $organization->id,
+                'metadata' => ['pack' => $pack->key, 'user_id' => (string) $user->id],
+                // An invoice-style receipt for the purchase.
+                'invoice_creation' => ['enabled' => true],
+            ])->url;
+        });
+    }
+
     public function portalUrl(Organization $organization, string $returnUrl): string
     {
         return $this->call(fn () => $organization->billingPortalUrl($returnUrl));

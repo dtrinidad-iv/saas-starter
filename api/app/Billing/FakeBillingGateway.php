@@ -21,9 +21,19 @@ class FakeBillingGateway implements BillingGateway
     /** @var list<int> */
     private array $portals = [];
 
+    /** @var list<array{organization_id: int, user_id: int, pack: string}> */
+    private array $creditCheckouts = [];
+
     public function subscriptionCheckoutUrl(Organization $organization, User $user, Plan $plan, string $successUrl, string $cancelUrl): string
     {
         $this->checkouts[] = ['organization_id' => $organization->id, 'user_id' => $user->id, 'plan' => $plan->key];
+
+        return $successUrl;
+    }
+
+    public function creditsCheckoutUrl(Organization $organization, User $user, CreditPack $pack, string $successUrl, string $cancelUrl): string
+    {
+        $this->creditCheckouts[] = ['organization_id' => $organization->id, 'user_id' => $user->id, 'pack' => $pack->key];
 
         return $successUrl;
     }
@@ -47,9 +57,18 @@ class FakeBillingGateway implements BillingGateway
         return $this->checkouts;
     }
 
+    /**
+     * @return list<array{organization_id: int, user_id: int, pack: string}>
+     */
+    public function creditCheckouts(): array
+    {
+        return $this->creditCheckouts;
+    }
+
     public function assertNothingStarted(): void
     {
         Assert::assertSame([], $this->checkouts, 'A checkout was started.');
+        Assert::assertSame([], $this->creditCheckouts, 'A credits checkout was started.');
         Assert::assertSame([], $this->portals, 'A billing portal session was started.');
     }
 

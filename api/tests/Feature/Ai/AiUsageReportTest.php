@@ -138,6 +138,7 @@ it('sets the monthly budget and returns the budget', function () {
             'is_default' => false,
             'plan' => 'pro',
             'plan_limit_usd' => 50,
+            'credits_usd' => 0,
             'spent_usd' => 1.25,
             'remaining_usd' => 11.25,
             'can_manage' => true,

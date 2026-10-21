@@ -21,6 +21,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Cashier\Subscription;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /*
@@ -303,10 +304,24 @@ function stripeWebhook(string $type, array $object, ?string $secret = null): Tes
     $timestamp = time();
     $signature = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret ?? config('cashier.webhook.secret'));
 
-    return test()->call('POST', '/api/stripe/webhook', server: [
-        'CONTENT_TYPE' => 'application/json',
-        'HTTP_STRIPE_SIGNATURE' => "t={$timestamp},v1={$signature}",
-    ], content: $payload);
+    // From Stripe, so nobody is logged in: set aside the test's actingAs user for it.
+    $user = auth()->guard()->user();
+    $guard = config('auth.defaults.guard');
+    auth()->forgetGuards();
+    config(['auth.defaults.guard' => 'web']);
+
+    try {
+        return test()->call('POST', '/api/stripe/webhook', server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_STRIPE_SIGNATURE' => "t={$timestamp},v1={$signature}",
+        ], content: $payload);
+    } finally {
+        config(['auth.defaults.guard' => $guard]);
+
+        if ($user instanceof User) {
+            Sanctum::actingAs($user);
+        }
+    }
 }
 
 /**
@@ -332,5 +347,27 @@ function stripeSubscription(Organization $organization, array $attributes = []):
             'quantity' => 1,
             'price' => ['id' => config('billing.plans.pro.price'), 'product' => 'prod_test'],
         ]]],
+    ], $attributes);
+}
+
+/**
+ * A Stripe Checkout Session object for a credit pack as webhooks send it: paid,
+ * one-time, started by $user.
+ *
+ * @param  array<string, mixed>  $attributes
+ * @return array<string, mixed>
+ */
+function stripeCreditsSession(Organization $organization, ?User $user = null, array $attributes = []): array
+{
+    return array_merge([
+        'id' => 'cs_test_'.Str::random(10),
+        'object' => 'checkout.session',
+        'customer' => $organization->stripe_id,
+        'client_reference_id' => (string) $organization->id,
+        'mode' => 'payment',
+        'payment_status' => 'paid',
+        'status' => 'complete',
+        'amount_total' => 1000,
+        'metadata' => ['pack' => 'credits_10', 'user_id' => $user === null ? null : (string) $user->id],
     ], $attributes);
 }

@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Billing\BillingOverview;
 use App\Actions\Billing\OpenBillingPortal;
+use App\Actions\Billing\StartCreditsCheckout;
 use App\Actions\Billing\StartSubscriptionCheckout;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Billing\StartCheckoutRequest;
+use App\Http\Requests\Billing\StartCreditsCheckoutRequest;
 use App\Models\Organization;
 use App\Support\CurrentOrganization;
 use Illuminate\Http\JsonResponse;
@@ -30,6 +32,15 @@ class BillingController extends Controller
         Gate::authorize('manageBilling', Organization::class);
 
         $url = $action->handle($currentOrganization->get(), $request->user(), $request->validated('plan'));
+
+        return response()->json(['data' => ['url' => $url]]);
+    }
+
+    public function creditsCheckout(StartCreditsCheckoutRequest $request, StartCreditsCheckout $action, CurrentOrganization $currentOrganization): JsonResponse
+    {
+        Gate::authorize('manageBilling', Organization::class);
+
+        $url = $action->handle($currentOrganization->get(), $request->user(), $request->validated('pack'));
 
         return response()->json(['data' => ['url' => $url]]);
     }

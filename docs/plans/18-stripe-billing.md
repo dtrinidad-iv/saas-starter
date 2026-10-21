@@ -36,11 +36,14 @@ Decisions taken: Laravel Cashier (new dependency, approved), Free/Pro tiers, cre
 - `ai-usage.vue`: the budget form's maximum is the plan's budget.
 - Docs: `.env.example`, README (Stripe setup, env keys, feature row), CLAUDE.md (Billing conventions).
 
-### 2. AI credit top-ups (api)
+### 2. AI credit top-ups (api) — built
 - Migration + model `AiCreditPurchase` (`BelongsToOrganization`, `pack`, `amount_usd`, `stripe_checkout_session_id` unique).
 - `POST /api/billing/credits/checkout` `{pack}` → `{url}`; Checkout `mode=payment` with the pack key in metadata (set by the server).
 - `StripeWebhookController::handleCheckoutSessionCompleted` → `GrantAiCredits`: only `mode=payment` and `payment_status=paid`, org from the customer id, pack validated against config, amount from config, idempotent on the session id, `RecordAudit(AuditAction::AiCreditsPurchased, organization: ...)`.
-- `AiBudget::limit()` adds this month's credits; `summary()` exposes them.
+- `AiBudget::limit()` adds this month's credits (an own budget of 0 still turns AI off); `summary()` exposes `credits_usd`. The buyer is recorded only while a member of the organization.
+- Credits are granted only when the session's `client_reference_id` (set by our checkout) is the customer's organization, and not sold while the own budget is $0.
+- Docs: `.env.example`, README (Stripe setup, events to forward, env key, feature row), CLAUDE.md.
+- **Known limitations** (follow-up if needed): refunds and disputes don't take credits back (handle in Stripe and adjust manually); credits expire at the end of the UTC month they're bought in, even if bought on the last day (the billing page says until when).
 
 ### 3. Billing page (web)
 - `web/app/pages/billing.vue`: current plan + status, "Upgrade to Pro" / "Manage billing", credit packs with "Buy", AI budget meter; loading, error and no-permission states.

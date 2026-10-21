@@ -52,7 +52,7 @@
 - Only the webhook (`POST /api/stripe/webhook`, `StripeWebhookController`) changes subscriptions; success redirects only refetch. `VerifyStripeWebhook` always checks the signature and refuses everything without `STRIPE_WEBHOOK_SECRET`. Make webhook handling idempotent (Stripe retries).
 - Cashier's `subscriptions` table has `organization_id` but no global scope: reach it only through `$organization->subscriptions()` (or `Plans`), never `Subscription::query()`.
 - Plan changes are audited (`PlanChanged`) when Stripe reports them (`Plans::reportedFor`), not when an end date passes.
-- The plan's AI budget is a ceiling: `organizations.ai_monthly_budget_usd` can only lower it.
+- The plan's AI budget is a ceiling: `organizations.ai_monthly_budget_usd` can only lower it. AI credits (`ai_credit_purchases`, packs in `config/billing.php`) add to the month they're bought in; `GrantAiCredits` takes the amount from config, never from the event, and grants once per Checkout session.
 - In tests, `subscribe()` writes a subscription directly and `stripeWebhook()` posts a signed event (`tests/Pest.php`).
 
 ## Audit log conventions

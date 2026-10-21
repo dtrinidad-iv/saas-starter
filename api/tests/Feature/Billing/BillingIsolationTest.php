@@ -98,3 +98,34 @@ it('records plan changes only in the organization that changed', function () {
         ->and(auditLogOf($this->orgB)->where('action', AuditAction::PlanChanged))->toBeEmpty()
         ->and(app(AiBudget::class)->limit($this->orgA->fresh()))->toBe(50.0);
 });
+
+it('grants credits only to the organization that is the Stripe customer', function () {
+    $this->orgA->forceFill(['stripe_id' => 'cus_a'])->save();
+
+    // B's customer, with A's buyer as metadata: B gets them, A's owner isn't recorded.
+    stripeWebhook('checkout.session.completed', stripeCreditsSession($this->orgB, $this->ownerA))->assertOk();
+
+    expect(app(AiBudget::class)->credits($this->orgA))->toBe(0.0)
+        ->and(app(AiBudget::class)->credits($this->orgB))->toBe(10.0)
+        ->and(auditLogOf($this->orgA)->where('action', AuditAction::AiCreditsPurchased))->toBeEmpty()
+        ->and(auditLogOf($this->orgB)->where('action', AuditAction::AiCreditsPurchased)->sole()->actor_id)->toBeNull();
+
+    // A session for B's customer that says it was started for A grants nothing at all.
+    stripeWebhook('checkout.session.completed', stripeCreditsSession($this->orgB, $this->ownerB, [
+        'client_reference_id' => (string) $this->orgA->id,
+    ]))->assertOk();
+
+    expect(app(AiBudget::class)->credits($this->orgA))->toBe(0.0)
+        ->and(app(AiBudget::class)->credits($this->orgB))->toBe(10.0);
+
+    $this->getJson('/api/ai-usage')->assertOk()->assertJsonPath('data.budget.credits_usd', 0);
+    $this->getJson('/api/billing')->assertOk()->assertJsonPath('data.ai_budget.credits_usd', 0);
+});
+
+it('starts a credits checkout only for its own organization', function () {
+    $this->postJson('/api/billing/credits/checkout', ['pack' => 'credits_10', 'organization_id' => $this->orgB->id])->assertOk();
+
+    expect($this->billing->creditCheckouts())->toBe([
+        ['organization_id' => $this->orgA->id, 'user_id' => $this->ownerA->id, 'pack' => 'credits_10'],
+    ]);
+});

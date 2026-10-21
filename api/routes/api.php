@@ -58,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/billing', [BillingController::class, 'show']);
         Route::post('/billing/checkout', [BillingController::class, 'checkout'])->middleware('throttle:20,1');
+        Route::post('/billing/credits/checkout', [BillingController::class, 'creditsCheckout'])->middleware('throttle:20,1');
         Route::post('/billing/portal', [BillingController::class, 'portal'])->middleware('throttle:20,1');
 
         Route::apiResource('projects', ProjectController::class)->whereNumber('project');

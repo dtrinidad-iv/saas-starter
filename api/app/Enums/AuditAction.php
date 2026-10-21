@@ -25,11 +25,12 @@ enum AuditAction: string
     case SummaryRejected = 'summary.rejected';
     case AiBudgetUpdated = 'ai_budget.updated';
     case PlanChanged = 'billing.plan_changed';
+    case AiCreditsPurchased = 'billing.credits_purchased';
 
     public function group(): string
     {
         return match ($this) {
-            self::OrganizationCreated, self::AiBudgetUpdated, self::PlanChanged => 'Organization',
+            self::OrganizationCreated, self::AiBudgetUpdated, self::PlanChanged, self::AiCreditsPurchased => 'Organization',
             self::MemberInvited, self::InvitationRevoked, self::MemberJoined,
             self::MemberRoleChanged, self::MemberRemoved => 'Members',
             self::RoleCreated, self::RoleUpdated, self::RoleDeleted => 'Roles',
@@ -58,6 +59,7 @@ enum AuditAction: string
             self::SummaryRejected => 'Rejected a project summary',
             self::AiBudgetUpdated => 'Changed the monthly AI budget',
             self::PlanChanged => 'Changed plan',
+            self::AiCreditsPurchased => 'Bought AI credits',
         };
     }
 }

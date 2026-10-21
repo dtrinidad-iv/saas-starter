@@ -4,6 +4,7 @@ namespace App\Ai;
 
 use App\Ai\Exceptions\AiBudgetExceeded;
 use App\Billing\Plans;
+use App\Models\AiCreditPurchase;
 use App\Models\AiUsage;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
@@ -23,16 +24,36 @@ class AiBudget
     ) {}
 
     /**
-     * USD per month: the plan's budget, or the organization's own budget when it's
-     * lower. The plan is the ceiling, so an organization can cap its spend but not
-     * give itself more than it pays for.
+     * USD this month: the plan's budget (or the organization's own budget when it's
+     * lower), plus AI credits bought this month. The plan is the ceiling, so an
+     * organization can cap its spend but not give itself more than it pays for.
+     * An own budget of 0 turns AI off, credits or not.
      */
     public function limit(Organization $organization): float
     {
         $plan = $this->planLimit($organization);
         $own = $organization->ai_monthly_budget_usd;
 
-        return $own === null ? $plan : min((float) $own, $plan);
+        if ($own !== null && (float) $own === 0.0) {
+            return 0.0;
+        }
+
+        return ($own === null ? $plan : min((float) $own, $plan)) + $this->credits($organization);
+    }
+
+    /**
+     * USD of AI credits bought in the (UTC) month. They don't carry over.
+     */
+    public function credits(Organization $organization, ?CarbonImmutable $month = null): float
+    {
+        $from = ($month ?? CarbonImmutable::now('UTC'))->startOfMonth();
+
+        // Explicit organization (not the scope), so it also works for one that isn't current.
+        return (float) AiCreditPurchase::withoutGlobalScope(OrganizationScope::class)
+            ->where('organization_id', $organization->id)
+            ->where('created_at', '>=', $from)
+            ->where('created_at', '<', $from->addMonth())
+            ->sum('amount_usd');
     }
 
     /**
@@ -63,7 +84,7 @@ class AiBudget
     /**
      * The current month's budget as the API shows it.
      *
-     * @return array{limit_usd: float, is_default: bool, plan: string, plan_limit_usd: float, spent_usd: float, remaining_usd: float}
+     * @return array{limit_usd: float, is_default: bool, plan: string, plan_limit_usd: float, credits_usd: float, spent_usd: float, remaining_usd: float}
      */
     public function summary(Organization $organization): array
     {
@@ -75,6 +96,7 @@ class AiBudget
             'is_default' => $organization->ai_monthly_budget_usd === null,
             'plan' => $this->plans->for($organization)->key,
             'plan_limit_usd' => $this->planLimit($organization),
+            'credits_usd' => $this->credits($organization),
             'spent_usd' => round($spent, 6),
             'remaining_usd' => round(max(0.0, $limit - $spent), 6),
         ];

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Billing\GrantAiCredits;
 use App\Actions\Billing\TrackPlanChange;
 use App\Models\Organization;
 use Closure;
@@ -10,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Cashier's webhook handling (it keeps subscriptions in sync), with plan changes
- * recorded in the audit log. The signature is always checked by the route's
+ * recorded in the audit log, plus paid credit pack checkouts. The signature is always checked by the route's
  * VerifyStripeWebhook middleware, so Cashier's optional check is skipped here.
  */
 class StripeWebhookController extends WebhookController
@@ -46,6 +47,20 @@ class StripeWebhookController extends WebhookController
         return $this->trackingPlan($payload, fn () => parent::handleCustomerSubscriptionDeleted($payload));
     }
 
+    /**
+     * A finished Checkout. Credit packs paid by card are "paid" here; slower payment
+     * methods are paid later, in async_payment_succeeded. Granting is idempotent.
+     */
+    protected function handleCheckoutSessionCompleted(array $payload): Response
+    {
+        return $this->grantingCredits($payload);
+    }
+
+    protected function handleCheckoutSessionAsyncPaymentSucceeded(array $payload): Response
+    {
+        return $this->grantingCredits($payload);
+    }
+
     protected function handleCustomerDeleted(array $payload): Response
     {
         return app(TrackPlanChange::class)->handle(
@@ -64,6 +79,17 @@ class StripeWebhookController extends WebhookController
         }
 
         return app(TrackPlanChange::class)->handle($organization, $handle);
+    }
+
+    private function grantingCredits(array $payload): Response
+    {
+        $session = $payload['data']['object'];
+
+        if ($organization = $this->organizationOf($session['customer'] ?? null)) {
+            app(GrantAiCredits::class)->handle($organization, $session);
+        }
+
+        return $this->successMethod();
     }
 
     private function organizationOf(mixed $stripeId): ?Organization

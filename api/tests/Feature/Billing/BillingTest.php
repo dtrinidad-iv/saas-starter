@@ -1,6 +1,7 @@
 <?php
 
 use App\Billing\Contracts\BillingGateway;
+use App\Billing\CreditPack;
 use App\Billing\Exceptions\BillingUnavailable;
 use App\Billing\Plan;
 use App\Enums\DefaultRole;
@@ -154,6 +155,11 @@ it('answers 503 when the payment provider is unavailable', function () {
             throw new BillingUnavailable;
         }
 
+        public function creditsCheckoutUrl(Organization $organization, User $user, CreditPack $pack, string $successUrl, string $cancelUrl): string
+        {
+            throw new BillingUnavailable;
+        }
+
         public function portalUrl(Organization $organization, string $returnUrl): string
         {
             throw new BillingUnavailable;
@@ -163,6 +169,7 @@ it('answers 503 when the payment provider is unavailable', function () {
     $this->postJson('/api/billing/checkout', ['plan' => 'pro'])
         ->assertStatus(503)
         ->assertExactJson(['message' => 'Billing is unavailable right now. Try again in a few minutes.', 'code' => 'billing_unavailable']);
+    $this->postJson('/api/billing/credits/checkout', ['pack' => 'credits_10'])->assertStatus(503);
 });
 
 it('lets only roles with billing.manage use billing', function (DefaultRole $role, int $status) {

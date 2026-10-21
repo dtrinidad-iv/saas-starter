@@ -30,6 +30,8 @@ abstract class TestCase extends BaseTestCase
             'billing.provider' => 'fake',
             'billing.plans.pro.price' => 'price_pro_test',
             'billing.plans.pro.ai_monthly_budget_usd' => 50,
+            'billing.credit_packs.credits_10.price' => 'price_credits_test',
+            'billing.credit_packs.credits_10.amount_usd' => 10,
             'cashier.secret' => null,
             'cashier.webhook.secret' => 'whsec_test',
         ]);

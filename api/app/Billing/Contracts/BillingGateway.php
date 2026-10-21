@@ -2,6 +2,7 @@
 
 namespace App\Billing\Contracts;
 
+use App\Billing\CreditPack;
 use App\Billing\Exceptions\BillingUnavailable;
 use App\Billing\Plan;
 use App\Models\Organization;
@@ -21,6 +22,15 @@ interface BillingGateway
      * @throws BillingUnavailable
      */
     public function subscriptionCheckoutUrl(Organization $organization, User $user, Plan $plan, string $successUrl, string $cancelUrl): string;
+
+    /**
+     * A hosted checkout page for a one-time purchase of an AI credit pack. The
+     * session carries the pack key and who started it (metadata), so the webhook
+     * knows what was paid for.
+     *
+     * @throws BillingUnavailable
+     */
+    public function creditsCheckoutUrl(Organization $organization, User $user, CreditPack $pack, string $successUrl, string $cancelUrl): string;
 
     /**
      * The hosted portal for the organization's card, invoices and cancellation.
