@@ -54,18 +54,45 @@ Key settings in `api/.env`:
 | `STRIPE_PRICE_CREDITS_10` | empty | Price id of the one-time "$10 of AI credits" price. Without it, buying credits is refused |
 
 ### Stripe (optional, for billing)
-Billing uses [Laravel Cashier](https://laravel.com/docs/billing): the **organization** is the Stripe customer, payments happen on Stripe Checkout, and card changes, invoices and cancellation in the Stripe Customer Portal. Subscriptions reach the app only through the webhook.
-1. In the Stripe Dashboard (test mode), create a product "Pro" with a recurring price and a product "AI credits" with a one-time $10 price; put their ids in `STRIPE_PRICE_PRO` and `STRIPE_PRICE_CREDITS_10`, and the API keys in `STRIPE_KEY` / `STRIPE_SECRET`.
-2. Turn on the Customer Portal (Settings > Billing > Customer portal) and allow canceling subscriptions (at the end of the billing period) and updating payment methods. Leave switching plans off: the app only knows the prices in `config/billing.php`. Under Settings > Billing > Subscriptions, set what happens after all retries for a failed payment fail to "cancel the subscription" (Pro stays active while Stripe retries).
-3. Forward webhooks locally with the [Stripe CLI](https://docs.stripe.com/stripe-cli) and put the `whsec_...` it prints in `STRIPE_WEBHOOK_SECRET`:
+Billing uses [Laravel Cashier](https://laravel.com/docs/billing): the **organization** is the Stripe customer, payments happen on Stripe Checkout, and card changes, invoices and cancellation in the Stripe Customer Portal. Subscriptions and credits reach the app only through the webhook.
+
+Without Stripe, set `BILLING_PROVIDER=fake`: every organization stays on Free (with `STRIPE_PRICE_*` set to any placeholder, Upgrade and Buy go straight back to the billing page and change nothing).
+
+**Local setup** (Stripe test mode, nothing is charged):
+
+1. Install the [Stripe CLI](https://docs.stripe.com/stripe-cli) and log in:
+   ```bash
+   stripe login
+   ```
+2. Get the webhook signing secret for `STRIPE_WEBHOOK_SECRET`:
+   ```bash
+   stripe listen --print-secret
+   ```
+3. Create the two prices and copy each `price_...` id:
+   ```bash
+   # STRIPE_PRICE_PRO: $19 a month
+   stripe prices create --unit-amount=1900 --currency=usd -d "recurring[interval]=month" -d "product_data[name]=Pro"
+   # STRIPE_PRICE_CREDITS_10: $10 one time
+   stripe prices create --unit-amount=1000 --currency=usd -d "product_data[name]=AI credits"
+   ```
+4. Turn on the Customer Portal in the Dashboard (Settings > Billing > Customer portal): allow updating payment methods, viewing invoices and canceling at the end of the period; leave plan switching off.
+5. Copy the test API keys from the Dashboard (Developers > API keys) and fill in `api/.env`:
+   ```dotenv
+   BILLING_PROVIDER=stripe
+   STRIPE_KEY=pk_test_...
+   STRIPE_SECRET=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   STRIPE_PRICE_PRO=price_...
+   STRIPE_PRICE_CREDITS_10=price_...
+   ```
+6. Restart the API, then forward webhooks while you test:
    ```bash
    stripe listen --forward-to localhost:8000/api/stripe/webhook \
      --events customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,customer.updated,customer.deleted,payment_method.automatically_updated,invoice.payment_action_required,invoice.payment_succeeded,checkout.session.completed,checkout.session.async_payment_succeeded
    ```
-   In production, add an endpoint for `https://<api>/api/stripe/webhook` with the same events and use its signing secret. (`php artisan cashier:webhook` registers Cashier's default events only, without the two `checkout.session.*` ones that grant credits.)
-4. Pay with the test card `4242 4242 4242 4242`, any future date and any CVC.
+7. Open http://localhost:3000/billing as an organization owner and pay with the test card `4242 4242 4242 4242` (any future date, any CVC).
 
-Without Stripe, set `BILLING_PROVIDER=fake`; every organization stays on Free.
+**Production:** use live keys and live prices; add a webhook endpoint for `https://<api>/api/stripe/webhook` (Dashboard > Developers > Webhooks) with the same events as above and use its signing secret (`php artisan cashier:webhook` registers Cashier's default events only, without the two `checkout.session.*` ones that grant credits). Set up the Customer Portal the same way, and under Settings > Billing > Subscriptions and emails > Manage failed payments, set "If all retries for a payment fail" to cancel the subscription (Pro stays active while Stripe retries).
 
 ### 3. Web
 ```bash
@@ -77,11 +104,12 @@ cp .env.example .env        # NUXT_PUBLIC_API_BASE=http://localhost:8000
 
 ## Run
 
-You need three terminals:
+You need three terminals (four with Stripe):
 ```bash
 cd api && PHP_CLI_SERVER_WORKERS=4 php artisan serve --no-reload   # API on http://localhost:8000
 cd api && php artisan queue:work     # sends queued emails and generates AI summaries
 cd web && npm run dev                # app on http://localhost:3000
+stripe listen --forward-to localhost:8000/api/stripe/webhook --events ...   # only for billing; full command in Setup > Stripe
 ```
 The API needs several workers: a streamed AI answer (writing help, chat) keeps one busy until it finishes. `--no-reload` is required for workers, so restart it after changing `.env`.
 In production also run the scheduler (`php artisan schedule:work`, or a cron entry for `schedule:run`); it prunes old audit log entries daily.
