@@ -106,6 +106,7 @@ const adminNavigation = computed(() => named(adminLinks.value))
     <UDashboardPanel>
       <!-- Pages render their own <h1>, so the app name here (mobile only, next to the sidebar toggle) is not a heading. -->
       <template #header>
+        <ImpersonationBanner />
         <VerifyEmailBanner />
         <UDashboardNavbar
           title="SaaS Starter"

@@ -109,10 +109,12 @@ async function savePassword(event: FormSubmitEvent<PasswordState>) {
   }
 }
 
-// Devices
+// Devices (hidden from a platform admin viewing as the user: they show IP addresses)
 const { data: devices, status: devicesStatus, error: devicesError, refresh: refreshDevices } = await useAsyncData(
   'account-devices',
-  () => api<{ data: Device[] }>('/api/account/devices').then(response => response.data),
+  () => auth.isImpersonating
+    ? Promise.resolve([])
+    : api<{ data: Device[] }>('/api/account/devices').then(response => response.data),
   { default: () => [] },
 )
 
@@ -381,8 +383,19 @@ async function deleteAccount(event: FormSubmitEvent<DeleteState>) {
       class="min-w-0"
       :ui="{ container: 'min-w-0' }"
     >
+      <p
+        v-if="auth.isImpersonating"
+        class="flex items-center gap-2 text-sm text-muted"
+      >
+        <UIcon
+          name="i-lucide-eye-off"
+          class="size-4 shrink-0"
+        />
+        Hidden in the support view.
+      </p>
+
       <UAlert
-        v-if="devicesError"
+        v-else-if="devicesError"
         color="error"
         variant="subtle"
         title="Could not load your devices"

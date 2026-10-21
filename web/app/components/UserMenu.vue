@@ -31,7 +31,10 @@ const items = computed<DropdownMenuItem[][]>(() => [
     })),
   }],
   [{ label: 'Account settings', icon: 'i-lucide-user-cog', to: '/account' }],
-  [{ label: 'Log out', icon: 'i-lucide-log-out', onSelect: () => auth.logout() }],
+  // In a platform admin's "view as user" session, logging out goes back to the admin.
+  [auth.isImpersonating
+    ? { label: 'Stop viewing', icon: 'i-lucide-eye-off', onSelect: () => auth.stopImpersonation() }
+    : { label: 'Log out', icon: 'i-lucide-log-out', onSelect: () => auth.logout() }],
 ])
 </script>
 

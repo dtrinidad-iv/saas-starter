@@ -22,8 +22,26 @@ export function useApi({ handleUnauthorized = true }: { handleUnauthorized?: boo
       }
     },
 
-    async onResponseError({ response }) {
+    async onResponseError({ response, options }) {
       if (response.status !== 401 || !handleUnauthorized) {
+        return
+      }
+
+      // Sent with a token that has since been replaced (e.g. a parallel request already
+      // ended the support view): nothing left to clear.
+      const sent = options.headers.get('Authorization')
+      if (sent && sent !== `Bearer ${auth.token}`) {
+        return
+      }
+
+      // A platform admin's "view as user" session ended (it expired): back to their own account.
+      if (auth.adminToken) {
+        if (import.meta.client) {
+          await nuxtApp.runWithContext(() => auth.stopImpersonation({ expired: true }))
+        }
+        else {
+          auth.restoreAdminToken()
+        }
         return
       }
 
@@ -66,8 +84,16 @@ export function useApiStream() {
   }
 
   // Checks `signal` after each await: a stream stopped meanwhile (Discard, a new run) shows nothing.
-  async function failForResponse(response: Response, signal: AbortSignal) {
+  async function failForResponse(response: Response, signal: AbortSignal, sentToken: string | null) {
+    // Only a 401 for the current token ends anything (see useApi).
+    if (response.status === 401 && sentToken !== auth.token) {
+      return fail('Your session changed. Please try again.')
+    }
     if (response.status === 401) {
+      if (auth.adminToken) {
+        await nuxtApp.runWithContext(() => auth.stopImpersonation({ expired: true }))
+        return fail('The support view ended.')
+      }
       auth.clearSession()
       await nuxtApp.runWithContext(() => navigateTo('/login'))
       return fail('Your session has ended. Please log in again.')
@@ -119,6 +145,7 @@ export function useApiStream() {
     error.value = null
     started.value = false
     status.value = 'streaming'
+    const sentToken = auth.token
 
     try {
       const response = await fetch(config.public.apiBase.replace(/\/$/, '') + path, {
@@ -126,14 +153,14 @@ export function useApiStream() {
         headers: {
           'Accept': 'text/event-stream',
           'Content-Type': 'application/json',
-          ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
+          ...(sentToken ? { Authorization: `Bearer ${sentToken}` } : {}),
         },
         body: JSON.stringify(body),
         signal: current.signal,
       })
 
       if (!response.ok || !response.body) {
-        return await failForResponse(response, current.signal)
+        return await failForResponse(response, current.signal, sentToken)
       }
 
       started.value = true

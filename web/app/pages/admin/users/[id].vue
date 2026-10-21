@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { AdminUserDetail } from '~/types/api'
+import type { AdminUserDetail, ImpersonationSession } from '~/types/api'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -108,6 +108,24 @@ async function runPending(reason: string) {
 function onDone(updated: AdminUserDetail) {
   update(updated)
   toast.add({ title: `${pending.value?.done ?? 'Done'}: ${updated.name}`, color: 'success' })
+}
+
+// A read-only "view as user" session: the app opens as them, with a banner to stop.
+// Not for suspended users (nothing to see) or users in no organization.
+const canViewAs = computed(() => !!user.value && !user.value.suspended_at && user.value.organizations.length > 0)
+const viewAsOpen = ref(false)
+
+function startViewAs(reason: string) {
+  return api<ImpersonationSession>(`/api/admin/users/${id}/impersonate`, { method: 'POST', body: { reason } })
+}
+
+async function onViewAs(session: ImpersonationSession) {
+  try {
+    await auth.startImpersonation(session)
+  }
+  catch (error) {
+    toast.add({ title: 'Could not open the support view', description: errorMessage(error), color: 'error' })
+  }
 }
 
 type Membership = AdminUserDetail['organizations'][number]
@@ -223,6 +241,14 @@ const formatDateTime = (value: string) =>
             class="flex flex-wrap gap-2"
           >
             <UButton
+              v-if="canViewAs"
+              label="View as user"
+              icon="i-lucide-eye"
+              color="neutral"
+              variant="outline"
+              @click="viewAsOpen = true"
+            />
+            <UButton
               v-for="action in actions"
               :key="action.key"
               :label="action.label"
@@ -280,6 +306,16 @@ const formatDateTime = (value: string) =>
         :action="runPending"
         :danger="pending.danger"
         @done="onDone"
+      />
+
+      <AdminActionModal
+        v-if="viewAsOpen"
+        v-model:open="viewAsOpen"
+        title="View as this user?"
+        :description="`The app opens as ${user.name}, read-only, until you stop or it expires (the banner shows when). Project content and chats stay hidden. They get an email, and their organizations' audit logs show that a platform admin viewed them.`"
+        confirm-label="View as user"
+        :action="startViewAs"
+        @done="onViewAs"
       />
     </template>
   </div>

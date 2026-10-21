@@ -148,7 +148,7 @@ async function destroy() {
           </div>
           <div class="flex flex-wrap gap-2">
             <UButton
-              v-if="project.can.chat"
+              v-if="project.can.chat && !project.content_hidden"
               label="Ask AI"
               icon="i-lucide-message-circle"
               color="neutral"
@@ -177,7 +177,17 @@ async function destroy() {
 
         <UCard>
           <p
-            v-if="project.description"
+            v-if="project.content_hidden"
+            class="flex items-center gap-2 text-sm text-muted"
+          >
+            <UIcon
+              name="i-lucide-eye-off"
+              class="size-4 shrink-0"
+            />
+            Content hidden in the support view: the description, summary and chat.
+          </p>
+          <p
+            v-else-if="project.description"
             class="whitespace-pre-line text-sm"
           >
             {{ project.description }}
@@ -191,12 +201,13 @@ async function destroy() {
         </UCard>
 
         <ProjectSummaryCard
+          v-if="!project.content_hidden"
           :project-id="project.id"
           :can-generate="project.can.update"
         />
 
         <ProjectChat
-          v-if="project.can.chat"
+          v-if="project.can.chat && !project.content_hidden"
           v-model:open="chatOpen"
           :project-id="project.id"
           :project-name="project.name"

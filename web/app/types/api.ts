@@ -60,6 +60,8 @@ export interface User {
   two_factor_enabled: boolean
   /** Runs the app (not an organization role): sees the admin area. */
   is_platform_admin: boolean
+  /** Set in a platform admin's read-only "view as user" session: who is viewing, and until when. */
+  impersonated_by: { name: string, expires_at: string } | null
   current_organization: Organization | null
   created_at: string
 }
@@ -146,6 +148,8 @@ export interface Project {
   id: number
   name: string
   description: string | null
+  /** A platform admin is viewing as the user: the description, summaries and chat are hidden. */
+  content_hidden: boolean
   creator: { id: number, name: string } | null
   created_at: string
   updated_at: string
@@ -388,4 +392,10 @@ export interface PlatformAuditLogEntry {
   metadata: Record<string, unknown>
   ip_address: string | null
   created_at: string
+}
+
+/** A platform admin's read-only "view as user" session (POST /api/admin/users/{id}/impersonate). */
+export interface ImpersonationSession {
+  token: string
+  expires_at: string
 }
