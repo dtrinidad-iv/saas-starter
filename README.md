@@ -252,7 +252,7 @@ Demo data with real Claude answers (Haiku), light mode.
 
 **Audit log** of who did what, with filters.
 
-![Audit log with project, invitation and AI summary entries](docs/screenshots/audit-log.png)
+![Audit log with project and AI summary entries](docs/screenshots/audit-log.png)
 
 **AI usage** against the monthly budget, by feature and person.
 
