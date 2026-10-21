@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Auth\LoginUser;
 use App\Actions\Auth\RegisterUser;
+use App\Http\Controllers\Api\Concerns\RespondsWithLogin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
@@ -14,24 +15,16 @@ use Illuminate\Http\Response;
 
 class AuthController extends Controller
 {
+    use RespondsWithLogin;
+
     public function register(RegisterRequest $request, RegisterUser $action): JsonResponse
     {
-        ['user' => $user, 'token' => $token] = $action->handle($request->validated());
-
-        return response()->json([
-            'user' => new UserResource($user),
-            'token' => $token,
-        ], 201);
+        return $this->loginResponse($action->handle($request->validated()), 201);
     }
 
     public function login(LoginRequest $request, LoginUser $action): JsonResponse
     {
-        ['user' => $user, 'token' => $token] = $action->handle($request->validated());
-
-        return response()->json([
-            'user' => new UserResource($user),
-            'token' => $token,
-        ]);
+        return $this->loginResponse($action->handle($request->validated()));
     }
 
     public function logout(Request $request): Response

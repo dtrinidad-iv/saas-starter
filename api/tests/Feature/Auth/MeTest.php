@@ -17,6 +17,7 @@ it('returns the authenticated user', function () {
                 'name' => $user->name,
                 'email' => $user->email,
                 'email_verified' => true,
+                'two_factor_enabled' => false,
                 'current_organization' => null,
                 'created_at' => $user->created_at->toJSON(),
             ],

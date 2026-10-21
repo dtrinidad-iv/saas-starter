@@ -26,6 +26,7 @@
 - Migrations only. Never edit an existing migration that has been committed; add a new one.
 - Do not edit `.env`. Add new keys to `.env.example` with a comment.
 - Features that reach other people or cost money (invitations, joining, billing, AI) use the `verified` middleware (403 `email_unverified`). Account endpoints (`/api/account*`) act on the user, never an organization.
+- Tokens are only issued through `IssueToken`. With two-factor on (`User::hasTwoFactorEnabled`, TOTP in `App\Support\Totp`), login and password reset return `{ two_factor: true, challenge }` instead, and `POST /api/two-factor-challenge` swaps it plus a code for the token. A new way to log in must go through the same check.
 - Email links point at Nuxt (`config('app.frontend_url')`), which posts them back to the API. The verification link is signed relative to the API (`signed:relative`). Each group of `throttle:6,1` routes has its own prefix (e.g. `throttle:6,1,account`) so they don't share a counter.
 
 ## Frontend conventions

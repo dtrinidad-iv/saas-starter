@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectSummaryController;
 use App\Http\Controllers\Api\ProjectWritingHelpController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\TwoFactorChallengeController;
+use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Middleware\VerifyStripeWebhook;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +29,8 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,
 // Each group has its own counter (the prefix), so failed logins don't use up resets.
 Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->middleware('throttle:6,1,password-reset');
 Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:6,1,password-reset');
+// The second step of login or reset when two-factor is on (the challenge they returned).
+Route::post('/two-factor-challenge', [TwoFactorChallengeController::class, 'store'])->middleware('throttle:6,1,two-factor');
 
 // From Stripe, not the app: no user, authenticated by the payload signature.
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])->middleware(['throttle:120,1', VerifyStripeWebhook::class]);
@@ -45,6 +49,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/account/email', [AccountController::class, 'updateEmail'])->middleware('throttle:6,1,account');
     Route::put('/account/password', [AccountController::class, 'updatePassword'])->middleware('throttle:6,1,account');
     Route::delete('/account', [AccountController::class, 'destroy'])->middleware('throttle:6,1,account');
+    Route::post('/account/two-factor', [TwoFactorController::class, 'store'])->middleware('throttle:6,1,account');
+    Route::post('/account/two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:6,1,account');
+    Route::post('/account/two-factor/recovery-codes', [TwoFactorController::class, 'recoveryCodes'])->middleware('throttle:6,1,account');
+    Route::delete('/account/two-factor', [TwoFactorController::class, 'destroy'])->middleware('throttle:6,1,account');
     Route::get('/account/devices', [DeviceController::class, 'index']);
     Route::delete('/account/devices/{device}', [DeviceController::class, 'destroy'])->whereNumber('device');
 

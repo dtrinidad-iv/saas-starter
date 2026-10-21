@@ -17,9 +17,11 @@ use Laravel\Sanctum\HasApiTokens;
 
 /**
  * @property int|null $current_organization_id Only change via SwitchOrganization / CreateOrganization.
+ * @property string|null $two_factor_secret Base32 TOTP secret (encrypted at rest).
+ * @property list<string>|null $two_factor_recovery_codes sha256 hashes of the unused recovery codes.
  */
 #[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_last_used_step'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
@@ -35,6 +37,10 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'array',
+            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_last_used_step' => 'integer',
         ];
     }
 
@@ -79,6 +85,14 @@ class User extends Authenticatable implements MustVerifyEmail
         $id = $organization instanceof Organization ? $organization->getKey() : $organization;
 
         return $this->organizations()->whereKey($id)->exists();
+    }
+
+    /**
+     * On only once a code from the app confirmed the setup.
+     */
+    public function hasTwoFactorEnabled(): bool
+    {
+        return $this->two_factor_confirmed_at !== null && $this->two_factor_secret !== null;
     }
 
     /**

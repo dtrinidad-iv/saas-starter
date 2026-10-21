@@ -8,14 +8,18 @@ use Illuminate\Validation\ValidationException;
 
 class ResetUserPassword
 {
-    public function __construct(private readonly IssueToken $issueToken) {}
+    public function __construct(
+        private readonly IssueToken $issueToken,
+        private readonly IssueTwoFactorChallenge $issueChallenge,
+    ) {}
 
     /**
      * Set a new password with a reset token, sign out every device and log in here.
      * Following the emailed link also proves the address, so it counts as verified.
+     * With two-factor on it still needs a code: the inbox alone isn't enough to log in.
      *
      * @param  array{email: string, token: string, password: string}  $data
-     * @return array{user: User, token: string}
+     * @return array{user: User, token: string}|array{two_factor: true, challenge: string}
      *
      * @throws ValidationException invalid or expired token, or unknown email
      */
@@ -42,6 +46,10 @@ class ResetUserPassword
             throw ValidationException::withMessages([
                 'email' => ['This password reset link is invalid or has expired.'],
             ]);
+        }
+
+        if ($resetUser->hasTwoFactorEnabled()) {
+            return ['two_factor' => true, 'challenge' => $this->issueChallenge->handle($resetUser)];
         }
 
         return ['user' => $resetUser, 'token' => $this->issueToken->handle($resetUser)];
