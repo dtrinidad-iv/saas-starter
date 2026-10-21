@@ -67,6 +67,14 @@
 - Entries about projects use subject type `project` and keep project content out of `metadata`: `AuditLogResource` hides their label and changes from viewers without `projects.view`.
 - Entries are append-only; `model:prune` (scheduled daily) deletes them after `AUDIT_RETENTION_DAYS`.
 
+## Platform admin conventions
+- Platform admins run the app; it's not an organization role. `users.is_platform_admin` is not fillable and changes only through `php artisan admin:grant` (refused without 2FA) / `admin:revoke`, never an API request. Turning 2FA off revokes it (`DisableTwoFactor`, logged).
+- Admin routes (`/api/admin/*`) sit outside the `organization` group behind `platform-admin` (`EnsurePlatformAdmin`): 404 for non-admins, 403 `two_factor_required` without 2FA, 403 `two_factor_reauth` unless this token's `two_factor_at` is within `config('admin.two_factor_ttl_minutes')`. Tokens get `two_factor_at` only from a code of the existing factor: the login challenge with an app code (`IssueToken(..., twoFactor: true)`; not a recovery code) or `POST /api/account/two-factor/reconfirm`. Confirming a new setup doesn't count. `EnsurePlatformAdmin` runs before route bindings and answers with the router's own 404, and the `admin` limiter skips non-admins, so nothing reveals the area.
+- Cross-organization reads live only in `app/Actions/Admin`, with explicit `withoutGlobalScope(OrganizationScope::class)->where('organization_id', …)` (or `Membership::loadRoles`). They never set `CurrentOrganization` or change the admin's membership, and never read project content or chats.
+- Responses use `App\Http\Resources\Admin\*`, which list every field; don't reuse `UserResource`/`OrganizationResource` there.
+- What admins look at or change goes in the platform log (`RecordPlatformAudit`, `App\Enums\PlatformAuditAction`), not an organization's audit log. Detail views are logged; list searches aren't (they hold emails).
+- Tests send a real token from `platformAdmin()` / `adminToken()` (`tests/Pest.php`), since `Sanctum::actingAs` has no `two_factor_at`.
+
 ## Automation conventions
 - Recurring work uses the Laravel Scheduler.
 - Domain events (e.g. `ProjectCreated`) dispatch jobs. Keep listeners small.

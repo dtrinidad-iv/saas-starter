@@ -21,6 +21,7 @@ A quick tour, as a user would see it:
 6. **Pay for more.** Organizations start on **Free**. **Pro** (a monthly Stripe subscription) raises the AI budget, and one-time **AI credits** add to this month's budget on any plan. Card details, invoices and cancelling are handled on Stripe's own pages.
 7. **Manage your account.** Verify your email, reset a forgotten password, change your name, email or password, turn on two-factor authentication with an authenticator app, see where you're logged in and sign out other devices, or delete your account.
 8. **See what happened.** The **audit log** records who did what and when (members, roles, projects, AI reviews, plan changes and purchases), with before and after values.
+9. **Run the platform.** People who run the app (platform admins, made from the command line) get a read-only admin area to look up any user or organization for support: their organizations and roles, plan, AI budget, counts and members, never project content. It needs two-factor authentication, and every lookup is recorded in a platform log that organizations don't see.
 
 ## Key ideas
 
@@ -111,7 +112,8 @@ Key settings in `api/.env`:
 | `AI_PROVIDER` | `anthropic` | `fake` returns canned summaries with no network calls (no key needed) |
 | `AI_MODEL` | `claude-haiku-5-5` | Model for all AI features |
 | `AI_RATE_LIMIT_PER_MINUTE` | `5` | AI requests per organization per minute |
-| `AUDIT_RETENTION_DAYS` | `365` | Days to keep audit log entries; `0` keeps them forever |
+| `AUDIT_RETENTION_DAYS` | `365` | Days to keep audit log entries (organization and platform); `0` keeps them forever |
+| `ADMIN_TWO_FACTOR_TTL_MINUTES` | `720` | Platform admin pages ask for a fresh two-factor code once the last one on that device is older than this |
 | `BILLING_PROVIDER` | `stripe` | `fake` makes no Stripe calls: checkout goes straight back to the billing page and changes nothing |
 | `STRIPE_KEY`, `STRIPE_SECRET` | empty | Stripe API keys (test mode locally), used only by the API |
 | `STRIPE_WEBHOOK_SECRET` | empty | Signing secret of the webhook. Without it every webhook is refused, so subscriptions never sync |
@@ -180,6 +182,7 @@ stripe listen --forward-to localhost:8000/api/stripe/webhook --events ...   # on
 The API needs several workers: a streamed AI answer (writing help, chat) keeps one busy until it finishes. `--no-reload` is required for workers, so restart it after changing `.env`.
 In production also run the scheduler (`php artisan schedule:work`, or a cron entry for `schedule:run`); it prunes old audit log entries daily.
 Open http://localhost:3000 and register; your first organization is created for you.
+To make yourself a platform admin, register, turn on two-factor in Account settings, then run `cd api && php artisan admin:grant you@example.com` (`admin:revoke` undoes it). The admin area appears in the sidebar.
 Locally, emails (verification, password reset, invitations) aren't sent: with `MAIL_MAILER=log` the queue worker writes them, links included, to `api/storage/logs/laravel.log`.
 
 ## Tests and checks
@@ -217,6 +220,7 @@ Every feature, with its API endpoints and web page. This is the detailed referen
 | Project chat: "Ask AI" on a project opens a chat about that project (its name, description and approved summary). Answers stream in and can be stopped; the conversation is saved per user and only they see it; they can clear it, and it's deleted when they leave the organization. The AI can't change anything. Needs "Use AI features" plus view projects; counts against the budget and rate limit | `GET`, `POST` (`text/event-stream`), `DELETE /api/projects/{id}/chat` | Project page |
 | AI usage and budget: calls, tokens and cost by feature, person and day for a month ("View AI usage and cost", Admin by default). A monthly budget per organization (its plan's: `AI_MONTHLY_BUDGET_USD`, default $5, on Free, `BILLING_PRO_AI_BUDGET_USD` on Pro, plus AI credits bought that month; owners can lower theirs, 0 turns AI off) blocks AI requests once used up. Using AI needs the "Use AI features" permission (Admin and Member by default) | `GET /api/ai-usage?month=YYYY-MM`, `PUT /api/ai-budget` | `/ai-usage` |
 | Billing: Free and Pro plans per organization, Pro raising the monthly AI budget. Upgrading opens Stripe Checkout; the Customer Portal changes the card, shows invoices and cancels (Pro stays until the paid period ends, and while Stripe retries a failed renewal). Invoices (plan and credits) are listed in the app, read live from Stripe (drafts left out, 20 at a time), with "View"/"Pay" and PDF links to Stripe's hosted pages. Plans come from `config/billing.php`; only the webhook changes a subscription, and plan changes are audited. AI credits: a one-time $10 pack (Stripe Checkout) adds to the AI budget for the rest of that UTC month, on any plan; granted once per paid checkout, and audited. Needs "Manage the plan, payment details and invoices" (Owner only by default) | `GET /api/billing`, `POST /api/billing/checkout`, `POST /api/billing/credits/checkout`, `POST /api/billing/portal`, `GET /api/billing/invoices`, `POST /api/stripe/webhook` (Stripe-signed) | `/billing`, `/billing/invoices` |
+| Platform admin (read-only): search users (name, email) and organizations (name), 25 a page; a user's organizations, roles, devices and last activity; an organization's plan and subscription, AI budget this month, counts (members, projects, pending invitations) and members. Admins are made with `php artisan admin:grant {email}` (they need two-factor on first) / `admin:revoke`, never through the API; turning two-factor off ends admin until granted again. Admin routes answer 404 to everyone else, and need two-factor on (403 `two_factor_required`) plus a code on this device within `ADMIN_TWO_FACTOR_TTL_MINUTES` (403 `two_factor_reauth`; logging in with a code from the app counts, a recovery code doesn't). Opening a user or organization is recorded in the platform log (who, when, IP), which organizations never see; searches aren't recorded | `GET /api/admin/users`, `GET /api/admin/users/{id}`, `GET /api/admin/organizations`, `GET /api/admin/organizations/{id}`, `GET /api/admin/audit-log`; `POST /api/account/two-factor/reconfirm` (a fresh code) | "Platform admin" in the sidebar: `/admin/users`, `/admin/organizations`, `/admin/audit-log` |
 
 Organization routes act on the user's **current** organization (`users.current_organization_id`). Tenant-owned models use the `BelongsToOrganization` trait, so another organization's records return 404.
 
@@ -287,6 +291,16 @@ Demo data with real Claude answers (Haiku), light mode.
 **Mobile**: the sidebar collapses into a menu.
 
 <img src="docs/screenshots/mobile.png" alt="Project page at phone width" width="300">
+
+### Platform admin
+
+**Users**: everyone with an account, searchable by name or email.
+
+![Platform admin user search with verified, two-factor and admin badges](docs/screenshots/admin-users.png)
+
+**An organization** as an admin sees it: plan, AI budget, counts and members, no project content.
+
+![Platform admin page of an organization on the Pro plan with its AI budget, counts and members](docs/screenshots/admin-organization.png)
 
 ## Project layout
 ```
