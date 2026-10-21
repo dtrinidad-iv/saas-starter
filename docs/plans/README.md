@@ -24,3 +24,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 14 | [Better summaries](14-better-summaries.md) | Done |
 | 15 | [Streaming foundation + AI writing help](15-ai-streaming-writing-help.md) | Done |
 | 16 | [Project chat](16-project-chat.md) | Done |
+| 17 | [README screenshots](17-readme-screenshots.md) | Done |
