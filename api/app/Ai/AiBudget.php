@@ -3,6 +3,7 @@
 namespace App\Ai;
 
 use App\Ai\Exceptions\AiBudgetExceeded;
+use App\Billing\Plans;
 use App\Models\AiUsage;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
@@ -16,14 +17,30 @@ use Carbon\CarbonImmutable;
  */
 class AiBudget
 {
-    public function __construct(private readonly CurrentOrganization $currentOrganization) {}
+    public function __construct(
+        private readonly CurrentOrganization $currentOrganization,
+        private readonly Plans $plans,
+    ) {}
 
     /**
-     * USD per month: the organization's override, or the default from config.
+     * USD per month: the plan's budget, or the organization's own budget when it's
+     * lower. The plan is the ceiling, so an organization can cap its spend but not
+     * give itself more than it pays for.
      */
     public function limit(Organization $organization): float
     {
-        return (float) ($organization->ai_monthly_budget_usd ?? config('ai.monthly_budget_usd'));
+        $plan = $this->planLimit($organization);
+        $own = $organization->ai_monthly_budget_usd;
+
+        return $own === null ? $plan : min((float) $own, $plan);
+    }
+
+    /**
+     * The most the organization's plan allows per month.
+     */
+    public function planLimit(Organization $organization): float
+    {
+        return $this->plans->for($organization)->aiMonthlyBudgetUsd;
     }
 
     public function spent(Organization $organization, ?CarbonImmutable $month = null): float
@@ -46,7 +63,7 @@ class AiBudget
     /**
      * The current month's budget as the API shows it.
      *
-     * @return array{limit_usd: float, is_default: bool, spent_usd: float, remaining_usd: float}
+     * @return array{limit_usd: float, is_default: bool, plan: string, plan_limit_usd: float, spent_usd: float, remaining_usd: float}
      */
     public function summary(Organization $organization): array
     {
@@ -56,6 +73,8 @@ class AiBudget
         return [
             'limit_usd' => $limit,
             'is_default' => $organization->ai_monthly_budget_usd === null,
+            'plan' => $this->plans->for($organization)->key,
+            'plan_limit_usd' => $this->planLimit($organization),
             'spent_usd' => round($spent, 6),
             'remaining_usd' => round(max(0.0, $limit - $spent), 6),
         ];

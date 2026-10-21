@@ -128,6 +128,7 @@ it('never reports a negative remaining budget', function () {
 });
 
 it('sets the monthly budget and returns the budget', function () {
+    subscribe($this->acme);
     createAiUsage($this->acme, ['cost_usd' => '1.250000']);
 
     $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 12.5])
@@ -135,6 +136,8 @@ it('sets the monthly budget and returns the budget', function () {
         ->assertExactJson(['data' => [
             'limit_usd' => 12.5,
             'is_default' => false,
+            'plan' => 'pro',
+            'plan_limit_usd' => 50,
             'spent_usd' => 1.25,
             'remaining_usd' => 11.25,
             'can_manage' => true,
@@ -162,9 +165,9 @@ it('accepts the boundary values', function (int|float|string $value, string $sto
 
     expect($this->acme->fresh()->ai_monthly_budget_usd)->toBe($stored);
 })->with([
-    'maximum' => [10000, '10000.00'],
+    'the plan\'s budget' => [5, '5.00'],
     'two decimals' => [0.01, '0.01'],
-    'numeric string' => ['7.5', '7.50'],
+    'numeric string' => ['4.5', '4.50'],
 ]);
 
 it('validates the budget', function (array $payload) {
@@ -179,14 +182,14 @@ it('validates the budget', function (array $payload) {
 })->with([
     'missing' => [[]],
     'negative' => [['monthly_budget_usd' => -1]],
-    'over the maximum' => [['monthly_budget_usd' => 10000.01]],
+    'over the plan\'s budget' => [['monthly_budget_usd' => 5.01]],
     'three decimals' => [['monthly_budget_usd' => 1.255]],
     'not a number' => [['monthly_budget_usd' => 'lots']],
     'array' => [['monthly_budget_usd' => [5]]],
 ]);
 
 it('records an audit entry with the old and new budget', function () {
-    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 20])->assertOk();
+    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 4])->assertOk();
     $this->putJson('/api/ai-budget', ['monthly_budget_usd' => null])->assertOk();
 
     $entries = auditLogOf($this->acme)->where('action', AuditAction::AiBudgetUpdated)->values();
@@ -196,18 +199,18 @@ it('records an audit entry with the old and new budget', function () {
         ->actor_id->toBe($this->owner->id)
         ->subject_type->toBe('organization')
         ->subject_id->toBe($this->acme->id)
-        ->changes->toEqual(['ai_monthly_budget_usd' => ['old' => null, 'new' => '20.00']])
-        ->and($entries[1]->changes)->toEqual(['ai_monthly_budget_usd' => ['old' => '20.00', 'new' => null]]);
+        ->changes->toEqual(['ai_monthly_budget_usd' => ['old' => null, 'new' => '4.00']])
+        ->and($entries[1]->changes)->toEqual(['ai_monthly_budget_usd' => ['old' => '4.00', 'new' => null]]);
 });
 
 it('records no audit entry when the budget does not change', function () {
-    $this->acme->forceFill(['ai_monthly_budget_usd' => 8])->save();
+    $this->acme->forceFill(['ai_monthly_budget_usd' => 4])->save();
 
-    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 8])->assertOk();
-    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => '8.00'])->assertOk();
+    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 4])->assertOk();
+    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => '4.00'])->assertOk();
 
     expect(auditLogOf($this->acme)->where('action', AuditAction::AiBudgetUpdated))->toBeEmpty()
-        ->and($this->acme->fresh()->ai_monthly_budget_usd)->toBe('8.00');
+        ->and($this->acme->fresh()->ai_monthly_budget_usd)->toBe('4.00');
 });
 
 it('records no audit entry when the budget stays on the default', function () {

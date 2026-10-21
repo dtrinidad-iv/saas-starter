@@ -12,6 +12,8 @@ beforeEach(function () {
 
     createAiUsage($this->orgA, ['user_id' => $this->ownerA->id, 'feature' => 'project_summary', 'cost_usd' => '1.000000']);
     createAiUsage($this->orgB, ['user_id' => $this->ownerB->id, 'feature' => 'secret_feature', 'cost_usd' => '3.000000', 'input_tokens' => 9999]);
+    // On Pro, so its $50 budget isn't capped by the free plan.
+    subscribe($this->orgB);
     $this->orgB->forceFill(['ai_monthly_budget_usd' => 50])->save();
 
     // Org A's owner is the attacker in every test.

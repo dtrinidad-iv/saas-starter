@@ -45,6 +45,16 @@
 - Treat all user content as untrusted (prompt injection). Never include another organization's data in a prompt.
 - In tests, fake the AI client. Never make real API calls in tests. `TestCase` binds `FakeAiClient` as `$this->ai` (push responses and streams, `FakeAiClient::ABORT` to simulate the browser leaving, `assertSent`) and blocks stray HTTP. `AI_PROVIDER=fake` does the same for local and e2e runs.
 
+## Billing conventions
+- Stripe through Laravel Cashier. The **organization** is the billable (`Cashier::useCustomerModel`); billing endpoints act on the current organization and need `billing.manage`.
+- Code against `App\Billing\Contracts\BillingGateway` (`StripeBillingGateway`, or `FakeBillingGateway` with `BILLING_PROVIDER=fake`). Payments happen on Stripe's hosted pages (Checkout, Customer Portal); never handle card data. Tests use `$this->billing` (the fake) and never call Stripe.
+- Plans live in `config/billing.php`; `App\Billing\Plans::for()` says which one an organization is on. The client sends a plan key, never a price id or amount.
+- Only the webhook (`POST /api/stripe/webhook`, `StripeWebhookController`) changes subscriptions; success redirects only refetch. `VerifyStripeWebhook` always checks the signature and refuses everything without `STRIPE_WEBHOOK_SECRET`. Make webhook handling idempotent (Stripe retries).
+- Cashier's `subscriptions` table has `organization_id` but no global scope: reach it only through `$organization->subscriptions()` (or `Plans`), never `Subscription::query()`.
+- Plan changes are audited (`PlanChanged`) when Stripe reports them (`Plans::reportedFor`), not when an end date passes.
+- The plan's AI budget is a ceiling: `organizations.ai_monthly_budget_usd` can only lower it.
+- In tests, `subscribe()` writes a subscription directly and `stripeWebhook()` posts a signed event (`tests/Pest.php`).
+
 ## Audit log conventions
 - Tenant-owned models that users create, edit or delete use the `Auditable` trait (diffs of changed columns; keys, timestamps and `$hidden` are never logged; add others to `$auditExclude`).
 - Other notable actions (members, invitations, AI reviews) call `App\Actions\Audit\RecordAudit` inside their transaction. Pass `organization:` when not acting in it as the current organization (joining, creating).

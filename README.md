@@ -46,6 +46,25 @@ Key settings in `api/.env`:
 | `AI_MODEL` | `claude-haiku-5-5` | Model for all AI features |
 | `AI_RATE_LIMIT_PER_MINUTE` | `5` | AI requests per organization per minute |
 | `AUDIT_RETENTION_DAYS` | `365` | Days to keep audit log entries; `0` keeps them forever |
+| `BILLING_PROVIDER` | `stripe` | `fake` makes no Stripe calls: checkout goes straight back to the billing page and changes nothing |
+| `STRIPE_KEY`, `STRIPE_SECRET` | empty | Stripe API keys (test mode locally), used only by the API |
+| `STRIPE_WEBHOOK_SECRET` | empty | Signing secret of the webhook. Without it every webhook is refused, so subscriptions never sync |
+| `STRIPE_PRICE_PRO` | empty | Price id of the recurring Pro price. Without it, upgrading is refused |
+| `BILLING_PRO_AI_BUDGET_USD` | `50` | Monthly AI budget on Pro (Free gets `AI_MONTHLY_BUDGET_USD`) |
+
+### Stripe (optional, for billing)
+Billing uses [Laravel Cashier](https://laravel.com/docs/billing): the **organization** is the Stripe customer, payments happen on Stripe Checkout, and card changes, invoices and cancellation in the Stripe Customer Portal. Subscriptions reach the app only through the webhook.
+1. In the Stripe Dashboard (test mode), create a product "Pro" with a recurring price; put its id in `STRIPE_PRICE_PRO`, and the API keys in `STRIPE_KEY` / `STRIPE_SECRET`.
+2. Turn on the Customer Portal (Settings > Billing > Customer portal) and allow canceling subscriptions (at the end of the billing period) and updating payment methods. Leave switching plans off: the app only knows the prices in `config/billing.php`. Under Settings > Billing > Subscriptions, set what happens after all retries for a failed payment fail to "cancel the subscription" (Pro stays active while Stripe retries).
+3. Forward webhooks locally with the [Stripe CLI](https://docs.stripe.com/stripe-cli) and put the `whsec_...` it prints in `STRIPE_WEBHOOK_SECRET`:
+   ```bash
+   stripe listen --forward-to localhost:8000/api/stripe/webhook \
+     --events customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,customer.updated,customer.deleted,payment_method.automatically_updated,invoice.payment_action_required,invoice.payment_succeeded
+   ```
+   In production, add an endpoint for `https://<api>/api/stripe/webhook` with the same events (or run `php artisan cashier:webhook --url=https://<api>/api/stripe/webhook`) and use its signing secret.
+4. Pay with the test card `4242 4242 4242 4242`, any future date and any CVC.
+
+Without Stripe, set `BILLING_PROVIDER=fake`; every organization stays on Free.
 
 ### 3. Web
 ```bash
@@ -94,7 +113,8 @@ Every tenant-owned feature has a test proving organization A can't read or write
 | AI project summaries: generated on create (or on request) as a draft, then approved (optionally after editing the text and key points) or rejected. A summary is flagged when the project's name or description changed since it was written (nothing regenerates on its own). Rate limited per organization; every AI call is recorded in `ai_usage` with tokens and cost. To summarize existing projects that never had one: `php artisan ai:summarize-projects` (`--organization=ID` to repeat, `--limit=50` in total, `--dry-run`). It only summarizes projects whose creator is still a member allowed to use AI, and skips an organization whose budget is already spent; summaries queued past the budget fail when the worker runs them | `GET/POST /api/projects/{id}/summary`, `POST /api/projects/{id}/summaries/{summaryId}/approve`, `/reject` | AI summary card on `/projects/{id}` |
 | AI writing help: "Improve with AI" under a project's description improves, expands or shortens it. The answer streams in as it's written (server-sent events) and can be stopped, accepted into the form, retried or discarded; nothing is saved until the project is. Needs "Use AI features" plus create (new project) or edit (existing one); counts against the budget and rate limit | `POST /api/projects/writing-help`, `POST /api/projects/{id}/writing-help` (`text/event-stream`) | Project create and edit forms |
 | Project chat: "Ask AI" on a project opens a chat about that project (its name, description and approved summary). Answers stream in and can be stopped; the conversation is saved per user and only they see it; they can clear it, and it's deleted when they leave the organization. The AI can't change anything. Needs "Use AI features" plus view projects; counts against the budget and rate limit | `GET`, `POST` (`text/event-stream`), `DELETE /api/projects/{id}/chat` | Project page |
-| AI usage and budget: calls, tokens and cost by feature, person and day for a month ("View AI usage and cost", Admin by default). A monthly budget per organization (`AI_MONTHLY_BUDGET_USD`, default $5; owners can change theirs, 0 turns AI off) blocks AI requests once used up. Using AI needs the "Use AI features" permission (Admin and Member by default) | `GET /api/ai-usage?month=YYYY-MM`, `PUT /api/ai-budget` | `/ai-usage` |
+| AI usage and budget: calls, tokens and cost by feature, person and day for a month ("View AI usage and cost", Admin by default). A monthly budget per organization (its plan's: `AI_MONTHLY_BUDGET_USD`, default $5, on Free, `BILLING_PRO_AI_BUDGET_USD` on Pro; owners can lower theirs, 0 turns AI off) blocks AI requests once used up. Using AI needs the "Use AI features" permission (Admin and Member by default) | `GET /api/ai-usage?month=YYYY-MM`, `PUT /api/ai-budget` | `/ai-usage` |
+| Billing: Free and Pro plans per organization, Pro raising the monthly AI budget. Upgrading opens Stripe Checkout; the Customer Portal changes the card, shows invoices and cancels (Pro stays until the paid period ends, and while Stripe retries a failed renewal). Plans come from `config/billing.php`; only the webhook changes a subscription, and plan changes are audited. Needs "Manage the plan, payment details and invoices" (Owner only by default) | `GET /api/billing`, `POST /api/billing/checkout`, `POST /api/billing/portal`, `POST /api/stripe/webhook` (Stripe-signed) | |
 
 Organization routes act on the user's **current** organization (`users.current_organization_id`). Tenant-owned models use the `BelongsToOrganization` trait, so another organization's records return 404.
 

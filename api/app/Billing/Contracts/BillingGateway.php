@@ -1,0 +1,32 @@
+<?php
+
+namespace App\Billing\Contracts;
+
+use App\Billing\Exceptions\BillingUnavailable;
+use App\Billing\Plan;
+use App\Models\Organization;
+use App\Models\User;
+
+/**
+ * The only way the app talks to the payment provider. Payments happen on the
+ * provider's hosted pages; what they change comes back through the webhook.
+ */
+interface BillingGateway
+{
+    /**
+     * A hosted checkout page that subscribes the organization to the plan.
+     * $user is who starts it (their email becomes the customer's billing email
+     * if the organization isn't a customer yet).
+     *
+     * @throws BillingUnavailable
+     */
+    public function subscriptionCheckoutUrl(Organization $organization, User $user, Plan $plan, string $successUrl, string $cancelUrl): string;
+
+    /**
+     * The hosted portal for the organization's card, invoices and cancellation.
+     * Only for an organization that is already a customer.
+     *
+     * @throws BillingUnavailable
+     */
+    public function portalUrl(Organization $organization, string $returnUrl): string;
+}

@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Laravel\Cashier\Subscription;
 use Tests\TestCase;
 
 /*
@@ -259,4 +260,77 @@ function createChatMessage(Organization $organization, Project $project, User $u
 
         return $message;
     });
+}
+
+/**
+ * Make the organization a Stripe customer with a subscription, written directly
+ * (no webhook). Defaults to an active Pro subscription.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function subscribe(Organization $organization, array $attributes = []): Subscription
+{
+    if (! $organization->hasStripeId()) {
+        $organization->forceFill(['stripe_id' => 'cus_'.Str::random(14)])->save();
+    }
+
+    $subscription = $organization->subscriptions()->create(array_merge([
+        'type' => 'default',
+        'stripe_id' => 'sub_'.Str::random(14),
+        'stripe_status' => 'active',
+        'stripe_price' => config('billing.plans.pro.price'),
+        'quantity' => 1,
+    ], $attributes));
+    $organization->unsetRelation('subscriptions');
+
+    return $subscription;
+}
+
+/**
+ * Post a Stripe event to the webhook, signed like Stripe does (t=..., v1=HMAC-SHA256
+ * of "t.payload" with the webhook secret). Pass $secret to sign with a wrong one.
+ *
+ * @param  array<string, mixed>  $object  the event's data.object
+ */
+function stripeWebhook(string $type, array $object, ?string $secret = null): TestResponse
+{
+    $payload = json_encode([
+        'id' => 'evt_'.Str::random(14),
+        'object' => 'event',
+        'type' => $type,
+        'data' => ['object' => $object],
+    ]);
+    $timestamp = time();
+    $signature = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret ?? config('cashier.webhook.secret'));
+
+    return test()->call('POST', '/api/stripe/webhook', server: [
+        'CONTENT_TYPE' => 'application/json',
+        'HTTP_STRIPE_SIGNATURE' => "t={$timestamp},v1={$signature}",
+    ], content: $payload);
+}
+
+/**
+ * A Stripe subscription object as webhooks send it (one item).
+ *
+ * @param  array<string, mixed>  $attributes
+ * @return array<string, mixed>
+ */
+function stripeSubscription(Organization $organization, array $attributes = []): array
+{
+    return array_merge([
+        'id' => 'sub_test',
+        'object' => 'subscription',
+        'customer' => $organization->stripe_id,
+        'status' => 'active',
+        'cancel_at_period_end' => false,
+        'cancel_at' => null,
+        'canceled_at' => null,
+        'trial_end' => null,
+        'metadata' => ['type' => 'default'],
+        'items' => ['data' => [[
+            'id' => 'si_test',
+            'quantity' => 1,
+            'price' => ['id' => config('billing.plans.pro.price'), 'product' => 'prod_test'],
+        ]]],
+    ], $attributes);
 }

@@ -27,10 +27,10 @@ enum DefaultRole: string
     {
         return match ($this) {
             self::Owner => [],
-            // Changing roles and the AI budget stays with the owner.
+            // Changing roles, the AI budget and billing stays with the owner.
             self::Admin => array_values(array_filter(
                 Permission::cases(),
-                fn (Permission $permission) => ! in_array($permission, [Permission::RolesManage, Permission::AiBudgetManage], true),
+                fn (Permission $permission) => ! in_array($permission, [Permission::RolesManage, Permission::AiBudgetManage, Permission::BillingManage], true),
             )),
             self::Member => [Permission::ProjectsView, Permission::ProjectsCreate, Permission::ProjectsUpdateOwn, Permission::AiUse],
         };

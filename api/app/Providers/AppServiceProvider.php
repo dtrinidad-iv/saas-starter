@@ -8,7 +8,11 @@ use App\Ai\Clients\BudgetedAiClient;
 use App\Ai\Clients\FakeAiClient;
 use App\Ai\Clients\RecordingAiClient;
 use App\Ai\Contracts\AiClient;
+use App\Billing\Contracts\BillingGateway;
+use App\Billing\FakeBillingGateway;
+use App\Billing\StripeBillingGateway;
 use App\Jobs\OrganizationJob;
+use App\Models\Organization;
 use App\Support\CurrentOrganization;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
@@ -17,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
+use Laravel\Cashier\Cashier;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -55,6 +60,23 @@ class AppServiceProvider extends ServiceProvider
                 ? $app->make(FakeAiClient::class)
                 : new FakeAiClient(config('ai.model')),
             default => throw new InvalidArgumentException('Unknown AI provider ['.config('ai.provider').'].'),
+        });
+
+        // The organization is the Stripe customer. Cashier's own routes are off: our
+        // webhook route (routes/api.php) always checks the signature.
+        Cashier::useCustomerModel(Organization::class);
+        Cashier::ignoreRoutes();
+        // A failed renewal keeps the plan while Stripe retries the card; Stripe then
+        // cancels or marks it unpaid (Billing settings), which ends the plan.
+        Cashier::keepPastDueSubscriptionsActive();
+
+        $this->app->bind(BillingGateway::class, fn (Application $app) => match (config('billing.provider')) {
+            'stripe' => $app->make(StripeBillingGateway::class),
+            // Tests bind their own instance (TestCase) to inspect what was started.
+            'fake' => $app->bound(FakeBillingGateway::class)
+                ? $app->make(FakeBillingGateway::class)
+                : new FakeBillingGateway,
+            default => throw new InvalidArgumentException('Unknown billing provider ['.config('billing.provider').'].'),
         });
     }
 

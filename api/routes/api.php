@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AiUsageController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\JoinController;
 use App\Http\Controllers\Api\MemberController;
@@ -13,10 +14,15 @@ use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectSummaryController;
 use App\Http\Controllers\Api\ProjectWritingHelpController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\VerifyStripeWebhook;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:6,1');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+
+// From Stripe, not the app: no user, authenticated by the payload signature.
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])->middleware(['throttle:120,1', VerifyStripeWebhook::class]);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -49,6 +55,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/ai-usage', [AiUsageController::class, 'index']);
         Route::put('/ai-budget', [AiUsageController::class, 'updateBudget'])->middleware('throttle:20,1');
+
+        Route::get('/billing', [BillingController::class, 'show']);
+        Route::post('/billing/checkout', [BillingController::class, 'checkout'])->middleware('throttle:20,1');
+        Route::post('/billing/portal', [BillingController::class, 'portal'])->middleware('throttle:20,1');
 
         Route::apiResource('projects', ProjectController::class)->whereNumber('project');
 

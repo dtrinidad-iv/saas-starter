@@ -61,7 +61,8 @@ it('uses the configured default while the organization has no override', functio
         ->assertJsonPath('data.budget.is_default', true);
 });
 
-it('uses the organization\'s override over the default', function () {
+it('uses the organization\'s own budget when it is below the plan\'s', function () {
+    subscribe($this->acme);
     config(['ai.monthly_budget_usd' => 1]);
     $this->acme->forceFill(['ai_monthly_budget_usd' => 10])->save();
     createAiUsage($this->acme, ['cost_usd' => '2.000000']);
@@ -70,12 +71,42 @@ it('uses the organization\'s override over the default', function () {
     $this->getJson('/api/ai-usage')
         ->assertOk()
         ->assertJsonPath('data.budget.limit_usd', 10)
+        ->assertJsonPath('data.budget.plan', 'pro')
+        ->assertJsonPath('data.budget.plan_limit_usd', 50)
         ->assertJsonPath('data.budget.is_default', false)
         ->assertJsonPath('data.budget.remaining_usd', 8);
 
-    // Over the default, but within the override: AI still works.
+    // Over the free budget, but within its own: AI still works.
     $this->postJson("/api/projects/{$this->project->id}/summary")->assertStatus(202);
     $this->ai->assertSent();
+});
+
+it('never lets the organization\'s own budget go above the plan\'s', function () {
+    // E.g. set while on Pro, then the subscription ended.
+    config(['ai.monthly_budget_usd' => 1]);
+    $this->acme->forceFill(['ai_monthly_budget_usd' => 10])->save();
+    createAiUsage($this->acme, ['cost_usd' => '2.000000']);
+    Sanctum::actingAs($this->owner);
+
+    $this->getJson('/api/ai-usage')
+        ->assertOk()
+        ->assertJsonPath('data.budget.limit_usd', 1)
+        ->assertJsonPath('data.budget.plan', 'free')
+        ->assertJsonPath('data.budget.remaining_usd', 0);
+
+    $this->postJson("/api/projects/{$this->project->id}/summary")->assertStatus(402);
+    $this->ai->assertNothingSent();
+});
+
+it('refuses a budget above the plan\'s with a message that says the limit', function () {
+    Sanctum::actingAs($this->owner);
+
+    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 5.01])
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.monthly_budget_usd.0', 'Your plan allows up to $5.00 a month. Upgrade the plan to raise it.');
+
+    subscribe($this->acme);
+    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 50])->assertOk()->assertJsonPath('data.limit_usd', 50);
 });
 
 it('turns AI off with a budget of 0', function () {

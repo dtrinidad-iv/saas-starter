@@ -25,3 +25,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 15 | [Streaming foundation + AI writing help](15-ai-streaming-writing-help.md) | Done |
 | 16 | [Project chat](16-project-chat.md) | Done |
 | 17 | [README screenshots](17-readme-screenshots.md) | Done |
+| 18 | [Stripe billing](18-stripe-billing.md) | WIP |

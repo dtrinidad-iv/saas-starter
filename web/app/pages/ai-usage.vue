@@ -123,9 +123,12 @@ function validateBudget(state: Partial<typeof budgetState>): FormError[] {
     return []
   }
   const value = Number(amount)
-  return Number.isFinite(value) && value >= 0 && value <= 10000 && /^\d+(\.\d{1,2})?$/.test(amount)
-    ? []
-    : [{ name: 'amount', message: 'Enter an amount from 0 to 10,000 with up to 2 decimals.' }]
+  if (!Number.isFinite(value) || value < 0 || !/^\d+(\.\d{1,2})?$/.test(amount)) {
+    return [{ name: 'amount', message: 'Enter an amount of 0 or more with up to 2 decimals.' }]
+  }
+  // The plan's budget is the ceiling (the API refuses more).
+  const max = budget.value?.plan_limit_usd ?? Infinity
+  return value <= max ? [] : [{ name: 'amount', message: `Your plan allows up to ${usd(max)} a month. Upgrade the plan to raise it.` }]
 }
 
 async function saveBudget(event: FormSubmitEvent<typeof budgetState>) {
@@ -205,7 +208,7 @@ async function saveBudget(event: FormSubmitEvent<typeof budgetState>) {
             </h2>
             <p class="text-sm text-muted">
               <template v-if="budget.limit_usd > 0">
-                {{ usd(budget.spent_usd) }} of {{ usd(budget.limit_usd) }} used{{ budget.is_default ? ' (default budget)' : '' }}.
+                {{ usd(budget.spent_usd) }} of {{ usd(budget.limit_usd) }} used{{ budget.limit_usd < budget.plan_limit_usd ? ` (your own limit; the plan allows ${usd(budget.plan_limit_usd)})` : ' (plan budget)' }}.
                 AI requests stop when it's used up.
               </template>
               <template v-else>
@@ -295,7 +298,7 @@ async function saveBudget(event: FormSubmitEvent<typeof budgetState>) {
     <UModal
       v-model:open="budgetOpen"
       title="Monthly AI budget"
-      description="Leave empty to use the default. 0 turns AI off for this organization."
+      :description="`Up to ${usd(budget?.plan_limit_usd ?? 0)} on your plan. Leave empty to use the plan's budget; 0 turns AI off for this organization.`"
     >
       <template #body>
         <UForm
@@ -311,7 +314,7 @@ async function saveBudget(event: FormSubmitEvent<typeof budgetState>) {
             <UInput
               v-model="budgetState.amount"
               inputmode="decimal"
-              placeholder="Default"
+              placeholder="Plan budget"
               autofocus
               class="w-full"
             >

@@ -37,9 +37,9 @@ it('lets only roles with ai_usage.view read the usage report', function (Default
 it('lets only roles with ai_budget.manage change the budget', function (DefaultRole $role, int $status) {
     Sanctum::actingAs(addMember($this->acme, $role));
 
-    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 12])->assertStatus($status);
+    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 3])->assertStatus($status);
 
-    expect($this->acme->fresh()->ai_monthly_budget_usd)->toBe($status === 200 ? '12.00' : null);
+    expect($this->acme->fresh()->ai_monthly_budget_usd)->toBe($status === 200 ? '3.00' : null);
 })->with([
     'owner' => [DefaultRole::Owner, 200],
     'admin' => [DefaultRole::Admin, 403],

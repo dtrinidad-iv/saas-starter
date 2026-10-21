@@ -1,0 +1,100 @@
+<?php
+
+use App\Ai\AiBudget;
+use App\Enums\AuditAction;
+use App\Enums\DefaultRole;
+use Laravel\Sanctum\Sanctum;
+
+beforeEach(function () {
+    config(['ai.monthly_budget_usd' => 5]);
+    [$this->ownerA, $this->orgA] = userInOrganization(DefaultRole::Owner, 'Org A');
+    [$this->ownerB, $this->orgB] = userInOrganization(DefaultRole::Owner, 'Org B');
+    subscribe($this->orgB);
+    $this->orgB->forceFill(['pm_type' => 'visa', 'pm_last_four' => '4242'])->save();
+
+    // Org A's owner is the attacker in every test.
+    Sanctum::actingAs($this->ownerA);
+});
+
+it('shows only its own organization\'s billing, whatever organization the request names', function () {
+    $this->getJson("/api/billing?organization_id={$this->orgB->id}")
+        ->assertOk()
+        ->assertJsonPath('data.plan.key', 'free')
+        ->assertJsonPath('data.payment_method', null)
+        ->assertJsonPath('data.has_billing_account', false);
+});
+
+it('starts a checkout only for its own organization', function () {
+    $this->postJson('/api/billing/checkout', ['plan' => 'pro', 'organization_id' => $this->orgB->id])->assertOk();
+
+    expect($this->billing->checkouts())->toBe([
+        ['organization_id' => $this->orgA->id, 'user_id' => $this->ownerA->id, 'plan' => 'pro'],
+    ]);
+});
+
+it('cannot open another organization\'s billing portal', function () {
+    $this->postJson('/api/billing/portal', ['organization_id' => $this->orgB->id])->assertUnprocessable();
+
+    expect($this->billing->portals())->toBe([]);
+});
+
+it('cannot use billing through a role it has in another organization but not here', function () {
+    // Member in A, owner in B: the current organization's role is what counts.
+    $member = addMember($this->orgA, DefaultRole::Member);
+    $this->orgB->members()->attach($member, ['role_id' => roleOf($this->orgB, DefaultRole::Owner)->id]);
+    Sanctum::actingAs($member);
+
+    $this->getJson('/api/billing')->assertForbidden();
+    $this->postJson('/api/billing/portal')->assertForbidden();
+    $this->billing->assertNothingStarted();
+});
+
+it('applies a webhook only to the organization that is the Stripe customer', function () {
+    $this->orgA->forceFill(['stripe_id' => 'cus_a'])->save();
+
+    stripeWebhook('customer.subscription.deleted', [...stripeSubscription($this->orgA), 'id' => $this->orgB->subscriptions()->value('stripe_id')])
+        ->assertOk();
+
+    // B's subscription is untouched: A's customer id doesn't own it.
+    expect(app(AiBudget::class)->limit($this->orgB->fresh()))->toBe(50.0)
+        ->and(auditLogOf($this->orgB)->where('action', AuditAction::PlanChanged))->toBeEmpty();
+});
+
+it('cannot change another organization\'s subscription with an update for its own customer', function (array $attributes) {
+    $this->orgA->forceFill(['stripe_id' => 'cus_a'])->save();
+    $orgBSubscription = $this->orgB->subscriptions()->sole();
+
+    stripeWebhook('customer.subscription.updated', [...stripeSubscription($this->orgA, $attributes), 'id' => $orgBSubscription->stripe_id]);
+
+    expect($orgBSubscription->fresh())
+        ->not->toBeNull()
+        ->stripe_status->toBe('active')
+        ->stripe_price->toBe('price_pro_test')
+        ->and(app(AiBudget::class)->limit($this->orgB->fresh()))->toBe(50.0)
+        ->and(auditLogOf($this->orgB)->where('action', AuditAction::PlanChanged))->toBeEmpty();
+})->with([
+    'incomplete_expired' => [['status' => 'incomplete_expired']],
+    'another price' => [['items' => ['data' => [['id' => 'si_other', 'quantity' => 1, 'price' => ['id' => 'price_cheap', 'product' => 'prod_test']]]]]],
+]);
+
+it('caps the budget at the current organization\'s plan, not another one the user pays for', function () {
+    // Owner of A (Free) and of B (Pro), acting in A.
+    $this->orgB->members()->attach($this->ownerA, ['role_id' => roleOf($this->orgB, DefaultRole::Owner)->id]);
+
+    $this->putJson('/api/ai-budget', ['monthly_budget_usd' => 50])
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.monthly_budget_usd.0', 'Your plan allows up to $5.00 a month. Upgrade the plan to raise it.');
+    $this->getJson('/api/ai-usage')->assertOk()->assertJsonPath('data.budget.plan', 'free');
+
+    expect($this->orgA->fresh()->ai_monthly_budget_usd)->toBeNull();
+});
+
+it('records plan changes only in the organization that changed', function () {
+    $this->orgA->forceFill(['stripe_id' => 'cus_a'])->save();
+
+    stripeWebhook('customer.subscription.created', stripeSubscription($this->orgA))->assertOk();
+
+    expect(auditLogOf($this->orgA)->where('action', AuditAction::PlanChanged))->toHaveCount(1)
+        ->and(auditLogOf($this->orgB)->where('action', AuditAction::PlanChanged))->toBeEmpty()
+        ->and(app(AiBudget::class)->limit($this->orgA->fresh()))->toBe(50.0);
+});

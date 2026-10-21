@@ -189,7 +189,12 @@ export interface AiUsageTotals {
 /** The current month's AI budget. limit 0 means AI is turned off. */
 export interface AiBudget {
   limit_usd: number
+  /** No own budget: the plan's applies. */
   is_default: boolean
+  /** Plan key from config/billing.php, e.g. free or pro. */
+  plan: string
+  /** The most the plan allows; an own budget can only be lower. */
+  plan_limit_usd: number
   spent_usd: number
   remaining_usd: number
   can_manage: boolean
