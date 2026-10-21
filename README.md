@@ -1,10 +1,10 @@
 # SaaS Starter
 
-**A working starting point for a team-based SaaS app**: a Laravel API (`api/`) and a Nuxt web app (`web/`) with organizations, roles and permissions, an audit log, AI features powered by Claude, and Stripe billing already built and tested.
+**A working starting point for a team-based SaaS app**: a Laravel API (`api/`) and a Nuxt web app (`web/`) with organizations, roles and permissions, an audit log, AI features powered by Claude, Stripe billing, two-factor authentication and a platform admin area already built and tested.
 
-Instead of starting from an empty project, you start from an app that already handles the parts every SaaS needs and that are easy to get wrong: keeping each customer's data separate, deciding who may do what, keeping AI costs under control, and taking payments. You then build your own product on top. **Projects** are the example feature to copy or replace.
+Instead of starting from an empty project, you start from an app that already handles the parts every SaaS needs and that are easy to get wrong: keeping each customer's data separate, deciding who may do what, keeping AI costs under control, taking payments, securing accounts, and supporting customers without seeing their data. You then build your own product on top. **Projects** are the example feature to copy or replace.
 
-**Contents:** [What it does](#what-it-does) · [Key ideas](#key-ideas) · [Roles](#roles-and-permissions) · [How it works](#how-it-works) · [Stack](#stack) · [Setup](#setup) · [Run](#run) · [Tests](#tests-and-checks) · [API and pages](#api-and-pages) · [Screenshots](#screenshots)
+**Contents:** [What it does](#what-it-does) · [Key ideas](#key-ideas) · [Roles](#roles-and-permissions) · [How it works](#how-it-works) · [Stack](#stack) · [Setup](#setup) · [Run](#run) · [Tests](#tests-and-checks) · [API and pages](#api-and-pages) · [Screenshots](#screenshots) · [Project layout](#project-layout) · [Working with Claude Code](#working-with-claude-code)
 
 ## What it does
 
@@ -21,7 +21,11 @@ A quick tour, as a user would see it:
 6. **Pay for more.** Organizations start on **Free**. **Pro** (a monthly Stripe subscription) raises the AI budget, and one-time **AI credits** add to this month's budget on any plan. Card details, invoices and cancelling are handled on Stripe's own pages.
 7. **Manage your account.** Verify your email, reset a forgotten password, change your name, email or password, turn on two-factor authentication with an authenticator app, see where you're logged in and sign out other devices, or delete your account.
 8. **See what happened.** The **audit log** records who did what and when (members, roles, projects, AI reviews, plan changes and purchases), with before and after values.
-9. **Run the platform.** People who run the app (platform admins, made from the command line) get an admin area to look up any user or organization for support: their organizations and roles, plan, AI budget, counts and members, never project content. They can also fix the usual support cases: reset a user's two-factor after a lost phone, sign them out everywhere, suspend or unsuspend them, or make a member Owner of an organization whose owners are gone. To see what a user sees, they can view the app as them, read-only: nothing can be changed, project content stays hidden, and the user gets an email. It needs two-factor authentication, and every lookup and action (with the admin's reason) is recorded in a platform log that organizations don't see; an organization's own audit log shows ownership changes as made by "Platform admin".
+9. **Run the platform.** People who run the app (platform admins, made from the command line, two-factor required) get an admin area for support:
+   - **Look up** any user or organization: their organizations and roles, plan, AI budget, counts and members, never project content.
+   - **Fix the usual cases:** reset a user's two-factor after a lost phone, sign them out everywhere, suspend or unsuspend them, or make a member Owner of an organization whose owners are gone.
+   - **View as user:** see the app as they do, read-only. Nothing can be changed, project content stays hidden, and the user gets an email.
+   - **Accountable:** every lookup and action (with the admin's reason) goes into a platform log that organizations don't see; an organization's own audit log shows changes made there as by "Platform admin".
 
 ## Key ideas
 
@@ -36,6 +40,9 @@ A quick tour, as a user would see it:
 | **AI budget** | Dollars of AI an organization can spend per month (UTC). It comes from the plan; owners can set a lower limit, or 0 to turn AI off. |
 | **AI credits** | A one-time purchase that adds to the AI budget for the rest of the month it's bought in. |
 | **Plan** | Free or Pro, set only by Stripe through a signed webhook. |
+| **Two-factor** | A 6-digit code from an authenticator app asked for after the password, with one-time recovery codes for a lost phone. |
+| **Platform admin** | Someone who runs the app, not a member role. Granted only from the command line, needs two-factor, and sees accounts and organizations but never their project content. |
+| **View as user** | A platform admin's read-only, time-limited session as a user, to see what they see. The user is told. |
 
 ## Roles and permissions
 
@@ -63,6 +70,7 @@ Nobody can hand out more than they have: a non-owner only grants, assigns or rem
                                      (AI calls only here)            │
                                                                      └── signed webhook ──▶ Laravel API
                                      Queue worker: emails, AI summaries
+                                     Scheduler: prunes old audit log entries
 ```
 
 - **The web app is only a client.** Every rule is enforced in the API: who you are (Sanctum token), which organization you act in, and what your role allows (policies).
@@ -70,6 +78,8 @@ Nobody can hand out more than they have: a non-owner only grants, assigns or rem
 - **AI runs only in Laravel**, behind one interface: the API key never reaches the browser, every call is recorded and checked against the budget, and tests use a fake instead of real calls. Interactive answers stream to the browser (server-sent events); slow work such as summaries runs in a queued job.
 - **Billing goes through Stripe's hosted pages.** The API returns a Checkout or Customer Portal link; what was paid comes back only through Stripe's signed webhook, which updates the plan or adds credits.
 - **Everything notable is audited** in the same database transaction as the change.
+- **Logging in has one path.** Every token comes from the same place, which asks for the two-factor code when it's on and refuses suspended accounts.
+- **Platform admin is separate from organizations.** Its routes answer 404 to everyone else, its cross-organization queries live in one folder (`app/Actions/Admin`), and it has its own log.
 
 ## Stack
 
@@ -86,7 +96,7 @@ Nobody can hand out more than they have: a non-owner only grants, assigns or rem
 ## Setup
 
 ### 1. Databases
-Create two databases: one for the app, and one for the tests (the tests wipe theirs).
+Create two databases: one for the app, and one for the tests (the tests wipe theirs). Commands that wipe a database (`migrate:fresh`, `db:wipe`, ...) refuse to run unless its name ends in `_test`, so the app database can't be lost by accident.
 ```bash
 createdb -h 127.0.0.1 -U postgres saas_starter
 createdb -h 127.0.0.1 -U postgres saas_starter_test
@@ -112,6 +122,7 @@ Key settings in `api/.env`:
 | `AI_PROVIDER` | `anthropic` | `fake` returns canned summaries with no network calls (no key needed) |
 | `AI_MODEL` | `claude-haiku-5-5` | Model for all AI features |
 | `AI_RATE_LIMIT_PER_MINUTE` | `5` | AI requests per organization per minute |
+| `AI_MONTHLY_BUDGET_USD` | `5` | Monthly AI budget per organization on Free |
 | `AUDIT_RETENTION_DAYS` | `365` | Days to keep audit log entries (organization and platform); `0` keeps them forever |
 | `ADMIN_TWO_FACTOR_TTL_MINUTES` | `720` | Platform admin pages ask for a fresh two-factor code once the last one on that device is older than this |
 | `ADMIN_ACTION_TWO_FACTOR_TTL_MINUTES` | `15` | Platform admin actions (suspend, reset two-factor, ...) ask for a fresh code once the last one on that device is older than this |
@@ -122,6 +133,8 @@ Key settings in `api/.env`:
 | `STRIPE_PRICE_PRO` | empty | Price id of the recurring Pro price. Without it, upgrading is refused |
 | `BILLING_PRO_AI_BUDGET_USD` | `50` | Monthly AI budget on Pro (Free gets `AI_MONTHLY_BUDGET_USD`) |
 | `STRIPE_PRICE_CREDITS_10` | empty | Price id of the one-time "$10 of AI credits" price. Without it, buying credits is refused |
+
+The rest (AI timeouts, displayed prices, currency, mail sender, ...) is explained by comments in `api/.env.example`.
 
 ### Stripe (optional, for billing)
 Billing uses [Laravel Cashier](https://laravel.com/docs/billing): the **organization** is the Stripe customer, payments happen on Stripe Checkout, and card changes, invoices and cancellation in the Stripe Customer Portal. Subscriptions and credits reach the app only through the webhook.
@@ -198,7 +211,7 @@ cd api && php artisan test           # Pest, against saas_starter_test
 cd api && vendor/bin/pint --test app routes tests database config bootstrap/app.php bootstrap/providers.php
 cd web && npm run lint && npm run typecheck && npm run build
 ```
-Every tenant-owned feature has a test proving organization A can't read or write organization B's data.
+About 550 Pest tests cover the API. Every tenant-owned feature has a test proving organization A can't read or write organization B's data. Tests never call Claude or Stripe: they use fakes (`FakeAiClient`, `FakeBillingGateway`).
 
 ## API and pages
 
@@ -268,7 +281,7 @@ Demo data with real Claude answers (Haiku), light mode.
 
 ![Ask AI panel with two questions and answers about the project](docs/screenshots/project-chat.png)
 
-### Team and admin
+### Team, account and billing
 
 **Choose an organization** after logging in, for people in more than one.
 
@@ -314,25 +327,41 @@ Demo data with real Claude answers (Haiku), light mode.
 ```
 api/                     Laravel API
   app/Actions/           Business logic, one class per action (controllers stay thin)
+  app/Actions/Admin/     The only place that reads or changes data across organizations
   app/Ai/                AI client interface, Claude client, budget, prompts
   app/Billing/           Plans, credit packs and the Stripe gateway (with a fake for tests)
   app/Http/              Controllers, Form Requests (validation), Resources (JSON), middleware
   app/Models/            Eloquent models; organization-owned ones use BelongsToOrganization
   app/Policies/          Who may do what, by permission
-  config/ai.php, billing.php   AI model, pricing and budget; plans and credit packs
+  app/Support/           Current organization, TOTP, recovery codes, impersonation
+  config/ai.php, billing.php, admin.php   AI model, pricing and budget; plans and credit packs; admin timeouts
   tests/Feature/         Pest tests, including organization A vs B isolation tests
 web/app/                 Nuxt app
-  pages/                 One file per page (projects, members, roles, audit log, AI usage, billing)
-  components/            Org switcher, project form, AI summary card, chat, ...
+  pages/                 One file per page (projects, members, roles, audit log, AI usage, billing, account, admin/...)
+  components/            Org switcher, project form, AI summary card, chat, two-factor, admin actions, ...
   composables/useApi.ts  The only way to call the API (JSON and streamed answers)
   stores/                Pinia: current user and current organization
 docs/plans/              One plan per task, with status (Proposed → WIP → Done) and commit hashes
 docs/screenshots/        The images in this README
 CLAUDE.md                Conventions and rules for working on this repo (also used by Claude Code)
-.claude/                 Claude Code skills, review agents and settings
+.claude/                 Claude Code skills, agents and hooks (see below)
 ```
 
 **Adding your own feature:** follow how Projects is built (model with `BelongsToOrganization`, policy, Form Requests, Action, Resource, page, and an isolation test). The `/tenant-feature` skill in `.claude/` walks through it step by step.
+
+## Working with Claude Code
+
+The repo was built with [Claude Code](https://claude.com/claude-code) and ships the setup it used in `.claude/`. [CLAUDE.md](CLAUDE.md) holds the rules it follows.
+
+| | |
+|---|---|
+| **Skills** | `/plan-task` writes a plan in `docs/plans/` and waits for approval · `/tenant-feature` walks through adding an organization-owned feature · `/verify` runs Pint, Pest, lint, typecheck and build · `/e2e-smoke` starts real servers on :8011/:3011 (with emails readable from the log) · `/ship-plan` commits, pushes and marks the plan Done |
+| **Review agents** (read-only) | `code-reviewer`, `security-auditor`, `tenant-isolation-reviewer`, `database-reviewer`, `ui-reviewer` (in a real browser) |
+| **Other agents** | `flow-tester` runs a plan's user flows end to end, emails included; `laravel-test-writer` writes missing Pest tests and can only edit `api/tests/` |
+| **Hooks** | Block commands that wipe or drop database data, keep `laravel-test-writer` inside `api/tests/`, and let `flow-tester` only check the e2e servers and clean up its own `e2e-ft-*` accounts |
+| **MCP** | Playwright (browser) and the Nuxt and Nuxt UI docs (`.mcp.json`) |
+
+A typical change: `/plan-task`, approve, build with tests, `/verify`, run the reviewers that fit, then `/ship-plan`.
 
 ## Contributing
 Read [CLAUDE.md](CLAUDE.md) for conventions: thin controllers, Actions, Form Requests, organization isolation, and docs updated in the same commit as the code they describe. Then see [docs/plans/](docs/plans/README.md) for how the project was built, task by task, including known follow-ups.
