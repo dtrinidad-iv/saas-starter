@@ -19,6 +19,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property int|null $current_organization_id Only change via SwitchOrganization / CreateOrganization.
  * @property string|null $two_factor_secret Base32 TOTP secret (encrypted at rest).
  * @property list<string>|null $two_factor_recovery_codes sha256 hashes of the unused recovery codes.
+ * @property bool $is_platform_admin Not fillable: only `admin:grant` / `admin:revoke` change it.
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_last_used_step'])]
@@ -41,6 +42,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_recovery_codes' => 'array',
             'two_factor_confirmed_at' => 'datetime',
             'two_factor_last_used_step' => 'integer',
+            'is_platform_admin' => 'boolean',
         ];
     }
 
@@ -93,6 +95,14 @@ class User extends Authenticatable implements MustVerifyEmail
     public function hasTwoFactorEnabled(): bool
     {
         return $this->two_factor_confirmed_at !== null && $this->two_factor_secret !== null;
+    }
+
+    /**
+     * Someone who runs the app. Admin routes also need two-factor (EnsurePlatformAdmin).
+     */
+    public function isPlatformAdmin(): bool
+    {
+        return $this->is_platform_admin === true;
     }
 
     /**

@@ -2,10 +2,12 @@
 
 use App\Http\Middleware\EnsureCurrentOrganization;
 use App\Http\Middleware\EnsureEmailIsVerified;
+use App\Http\Middleware\EnsurePlatformAdmin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,7 +23,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'organization' => EnsureCurrentOrganization::class,
             'verified' => EnsureEmailIsVerified::class,
+            'platform-admin' => EnsurePlatformAdmin::class,
         ]);
+
+        // Non-admins get 404 before {user} / {organization} are looked up, so ids can't be probed.
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsurePlatformAdmin::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

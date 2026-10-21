@@ -14,7 +14,9 @@ class ConfirmTwoFactor
 {
     /**
      * Turn two-factor on with a code from the app, and sign out every other device
-     * (like a password change). The token of this request keeps working.
+     * (like a password change). The token of this request keeps working, but doesn't
+     * count as having passed a code for admin routes: the factor is brand new, and
+     * only a password stood behind setting it up.
      *
      * @return list<string> the recovery codes, shown once
      *

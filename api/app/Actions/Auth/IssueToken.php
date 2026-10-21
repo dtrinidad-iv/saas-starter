@@ -13,9 +13,10 @@ class IssueToken
 
     /**
      * A new API token for the user, labelled with the device it was issued to
-     * (the client's device_name, or one read from the User-Agent).
+     * (the client's device_name, or one read from the User-Agent). $twoFactor: it
+     * was issued after a two-factor code (admin routes need that, recently).
      */
-    public function handle(User $user, ?string $deviceName = null): string
+    public function handle(User $user, ?string $deviceName = null, bool $twoFactor = false): string
     {
         $userAgent = $this->request->userAgent();
 
@@ -23,6 +24,7 @@ class IssueToken
         $token->accessToken->forceFill([
             'ip_address' => $this->request->ip(),
             'user_agent' => $userAgent === null ? null : Str::limit($userAgent, 509),
+            'two_factor_at' => $twoFactor ? now() : null,
         ])->save();
 
         return $token->plainTextToken;

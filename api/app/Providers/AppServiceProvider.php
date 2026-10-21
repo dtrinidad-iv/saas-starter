@@ -14,6 +14,7 @@ use App\Billing\StripeBillingGateway;
 use App\Enums\Permission;
 use App\Jobs\OrganizationJob;
 use App\Models\Organization;
+use App\Models\User;
 use App\Support\CurrentOrganization;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
@@ -125,6 +126,16 @@ class AppServiceProvider extends ServiceProvider
             }
 
             return $limits;
+        });
+
+        // Platform admin routes, per admin. The throttle runs before EnsurePlatformAdmin, so
+        // non-admins aren't counted: a 429 would tell them the area exists (they get 404).
+        RateLimiter::for('admin', function (Request $request) {
+            $user = $request->user();
+
+            return $user instanceof User && $user->isPlatformAdmin()
+                ? Limit::perMinute(60)->by('admin:'.$user->id)
+                : Limit::none();
         });
     }
 }

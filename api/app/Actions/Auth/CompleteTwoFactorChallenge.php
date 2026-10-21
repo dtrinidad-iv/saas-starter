@@ -42,7 +42,7 @@ class CompleteTwoFactorChallenge
             $this->expire($challenge);
         }
 
-        $limiterKey = 'two-factor:user:'.$userId;
+        $limiterKey = self::limiterKey($userId);
         if (RateLimiter::tooManyAttempts($limiterKey, self::MAX_FAILURES_PER_USER)) {
             $this->expire($challenge, 'Too many wrong codes for this account. Try again in '.ceil(RateLimiter::availableIn($limiterKey) / 60).' minutes.');
         }
@@ -84,7 +84,7 @@ class CompleteTwoFactorChallenge
                 // Again: with the database cache store, the rollback undid the forget.
                 $this->forget($challenge);
             } else {
-                $this->failed($limiterKey, $userId);
+                self::recordFailure($userId);
 
                 if ($attempts >= IssueTwoFactorChallenge::MAX_ATTEMPTS) {
                     $this->expire($challenge, "That code isn't right, and this login has expired after 5 tries. Enter your password again.");
@@ -100,7 +100,7 @@ class CompleteTwoFactorChallenge
             $user->notify(new RecoveryCodeUsed($remaining));
         }
 
-        return ['user' => $user, 'token' => $this->issueToken->handle($user, $pending['device_name'] ?? null)];
+        return ['user' => $user, 'token' => $this->issueToken->handle($user, $pending['device_name'] ?? null, twoFactor: $recoveryCode === null)];
     }
 
     /**
@@ -132,11 +132,20 @@ class CompleteTwoFactorChallenge
     }
 
     /**
+     * The account's wrong-code counter, shared with ReconfirmTwoFactor.
+     */
+    public static function limiterKey(?int $userId): string
+    {
+        return 'two-factor:user:'.$userId;
+    }
+
+    /**
      * A wrong code: counts toward the account's limit, and the first time the
      * limit trips the account is told (someone may have the password).
      */
-    private function failed(string $limiterKey, int $userId): void
+    public static function recordFailure(int $userId): void
     {
+        $limiterKey = self::limiterKey($userId);
         RateLimiter::hit($limiterKey, self::LOCKOUT_SECONDS);
 
         if (RateLimiter::attempts($limiterKey) === self::MAX_FAILURES_PER_USER) {

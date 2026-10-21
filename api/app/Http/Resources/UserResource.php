@@ -24,6 +24,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'email_verified' => $this->hasVerifiedEmail(),
             'two_factor_enabled' => $this->hasTwoFactorEnabled(),
+            'is_platform_admin' => $this->isPlatformAdmin(),
             'current_organization' => $currentOrganization ? new OrganizationResource($currentOrganization) : null,
             'created_at' => $this->created_at,
         ];

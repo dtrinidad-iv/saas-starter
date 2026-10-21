@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Account\ConfirmTwoFactor;
 use App\Actions\Account\DisableTwoFactor;
+use App\Actions\Account\ReconfirmTwoFactor;
 use App\Actions\Account\RegenerateRecoveryCodes;
 use App\Actions\Account\StartTwoFactorSetup;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Account\ConfirmTwoFactorRequest;
 use App\Http\Requests\Account\DisableTwoFactorRequest;
+use App\Http\Requests\Account\ReconfirmTwoFactorRequest;
 use App\Http\Requests\Account\RegenerateRecoveryCodesRequest;
 use App\Http\Requests\Account\StartTwoFactorRequest;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +38,22 @@ class TwoFactorController extends Controller
         );
 
         return response()->json(['data' => ['recovery_codes' => $codes]]);
+    }
+
+    /**
+     * A fresh code for this device, for the platform admin routes.
+     */
+    public function reconfirm(ReconfirmTwoFactorRequest $request, ReconfirmTwoFactor $action): Response
+    {
+        $token = $request->user()->currentAccessToken();
+
+        $action->handle(
+            $request->user(),
+            $request->validated('code'),
+            $token instanceof PersonalAccessToken ? $token : null,
+        );
+
+        return response()->noContent();
     }
 
     public function recoveryCodes(RegenerateRecoveryCodesRequest $request, RegenerateRecoveryCodes $action): JsonResponse

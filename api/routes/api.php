@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\OrganizationController as AdminOrganizationController;
+use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AiUsageController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
@@ -51,6 +54,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/account', [AccountController::class, 'destroy'])->middleware('throttle:6,1,account');
     Route::post('/account/two-factor', [TwoFactorController::class, 'store'])->middleware('throttle:6,1,account');
     Route::post('/account/two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:6,1,account');
+    // A fresh code for this device (platform admin routes need one within config('admin.two_factor_ttl_minutes')).
+    Route::post('/account/two-factor/reconfirm', [TwoFactorController::class, 'reconfirm'])->middleware('throttle:6,1,account');
     Route::post('/account/two-factor/recovery-codes', [TwoFactorController::class, 'recoveryCodes'])->middleware('throttle:6,1,account');
     Route::delete('/account/two-factor', [TwoFactorController::class, 'destroy'])->middleware('throttle:6,1,account');
     Route::get('/account/devices', [DeviceController::class, 'index']);
@@ -64,6 +69,17 @@ Route::middleware('auth:sanctum')->group(function () {
     // Accepting an invitation (token from the email link), from any current organization.
     Route::get('/join/{token}', [JoinController::class, 'show']);
     Route::post('/join/{token}', [JoinController::class, 'store'])->middleware(['throttle:20,1', 'verified']);
+
+    // Platform admins (not an organization role): read-only lookups across organizations.
+    // Non-admins get 404 (the 'admin' limiter doesn't count them, and verified runs after),
+    // so nothing tells them the area exists; admins need two-factor and a recent code.
+    Route::prefix('admin')->middleware(['throttle:admin', 'platform-admin', 'verified'])->group(function () {
+        Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/users/{user}', [AdminUserController::class, 'show'])->whereNumber('user');
+        Route::get('/organizations', [AdminOrganizationController::class, 'index']);
+        Route::get('/organizations/{organization}', [AdminOrganizationController::class, 'show'])->whereNumber('organization');
+        Route::get('/audit-log', [AdminAuditLogController::class, 'index']);
+    });
 
     // Everything below acts on the current organization. Features that reach other
     // people or cost money also need a verified email ('verified').

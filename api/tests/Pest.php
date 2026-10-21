@@ -10,6 +10,7 @@ use App\Models\AiUsage;
 use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
+use App\Models\PlatformAuditLog;
 use App\Models\Project;
 use App\Models\ProjectChatMessage;
 use App\Models\ProjectSummary;
@@ -392,4 +393,36 @@ function invoice(string $id, array $attributes = []): Invoice
         'hostedUrl' => 'https://invoice.stripe.com/i/acct_1/test_1',
         'pdfUrl' => 'https://pay.stripe.com/invoice/acct_1/test_1/pdf',
     ], $attributes));
+}
+
+/**
+ * A platform admin (two-factor on) and a real token for them. Admin routes read
+ * two_factor_at from the token, so Sanctum::actingAs (a transient token) won't do.
+ * Send it with ->withToken(). $twoFactorAt null: the token never passed a code.
+ *
+ * @return array{0: User, 1: string}
+ */
+function platformAdmin(?DateTimeInterface $twoFactorAt = null, bool $passedCode = true, array $attributes = []): array
+{
+    $admin = User::factory()->platformAdmin()->withTwoFactor()->create($attributes);
+
+    return [$admin, adminToken($admin, $passedCode ? ($twoFactorAt ?? now()) : null)];
+}
+
+function adminToken(User $user, ?DateTimeInterface $twoFactorAt): string
+{
+    $token = $user->createToken('test');
+    $token->accessToken->forceFill(['two_factor_at' => $twoFactorAt])->save();
+
+    return $token->plainTextToken;
+}
+
+/**
+ * Platform audit log entries, oldest first.
+ *
+ * @return Collection<int, PlatformAuditLog>
+ */
+function platformAuditLog(): Collection
+{
+    return PlatformAuditLog::query()->oldest('id')->get();
 }
