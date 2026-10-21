@@ -136,6 +136,7 @@ it('sets the monthly budget and returns the budget', function () {
         ->assertExactJson(['data' => [
             'limit_usd' => 12.5,
             'is_default' => false,
+            'own_limit_usd' => 12.5,
             'plan' => 'pro',
             'plan_limit_usd' => 50,
             'credits_usd' => 0,

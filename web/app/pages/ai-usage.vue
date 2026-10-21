@@ -113,7 +113,7 @@ const savingBudget = ref(false)
 const budgetState = reactive({ amount: '' })
 
 function openBudget() {
-  budgetState.amount = budget.value && !budget.value.is_default ? String(budget.value.limit_usd) : ''
+  budgetState.amount = budget.value?.own_limit_usd != null ? String(budget.value.own_limit_usd) : ''
   budgetOpen.value = true
 }
 
@@ -208,7 +208,10 @@ async function saveBudget(event: FormSubmitEvent<typeof budgetState>) {
             </h2>
             <p class="text-sm text-muted">
               <template v-if="budget.limit_usd > 0">
-                {{ usd(budget.spent_usd) }} of {{ usd(budget.limit_usd) }} used{{ budget.limit_usd < budget.plan_limit_usd ? ` (your own limit; the plan allows ${usd(budget.plan_limit_usd)})` : ' (plan budget)' }}.
+                {{ usd(budget.spent_usd) }} of {{ usd(budget.limit_usd) }} used{{ budget.own_limit_usd !== null && budget.own_limit_usd < budget.plan_limit_usd ? ` (your own limit; the plan allows ${usd(budget.plan_limit_usd)})` : ' (plan budget)' }}.
+                <template v-if="budget.credits_usd > 0">
+                  Includes {{ usd(budget.credits_usd) }} of AI credits bought this month.
+                </template>
                 AI requests stop when it's used up.
               </template>
               <template v-else>

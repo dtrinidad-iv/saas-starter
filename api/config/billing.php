@@ -33,7 +33,7 @@ return [
         'free' => [
             'name' => 'Free',
             'price' => null,
-            'display_price' => 'Free',
+            'display_price' => '$0 / month',
         ],
         'pro' => [
             'name' => 'Pro',

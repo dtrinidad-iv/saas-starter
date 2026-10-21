@@ -115,7 +115,7 @@ Every tenant-owned feature has a test proving organization A can't read or write
 | AI writing help: "Improve with AI" under a project's description improves, expands or shortens it. The answer streams in as it's written (server-sent events) and can be stopped, accepted into the form, retried or discarded; nothing is saved until the project is. Needs "Use AI features" plus create (new project) or edit (existing one); counts against the budget and rate limit | `POST /api/projects/writing-help`, `POST /api/projects/{id}/writing-help` (`text/event-stream`) | Project create and edit forms |
 | Project chat: "Ask AI" on a project opens a chat about that project (its name, description and approved summary). Answers stream in and can be stopped; the conversation is saved per user and only they see it; they can clear it, and it's deleted when they leave the organization. The AI can't change anything. Needs "Use AI features" plus view projects; counts against the budget and rate limit | `GET`, `POST` (`text/event-stream`), `DELETE /api/projects/{id}/chat` | Project page |
 | AI usage and budget: calls, tokens and cost by feature, person and day for a month ("View AI usage and cost", Admin by default). A monthly budget per organization (its plan's: `AI_MONTHLY_BUDGET_USD`, default $5, on Free, `BILLING_PRO_AI_BUDGET_USD` on Pro, plus AI credits bought that month; owners can lower theirs, 0 turns AI off) blocks AI requests once used up. Using AI needs the "Use AI features" permission (Admin and Member by default) | `GET /api/ai-usage?month=YYYY-MM`, `PUT /api/ai-budget` | `/ai-usage` |
-| Billing: Free and Pro plans per organization, Pro raising the monthly AI budget. Upgrading opens Stripe Checkout; the Customer Portal changes the card, shows invoices and cancels (Pro stays until the paid period ends, and while Stripe retries a failed renewal). Plans come from `config/billing.php`; only the webhook changes a subscription, and plan changes are audited. AI credits: a one-time $10 pack (Stripe Checkout) adds to the AI budget for the rest of that UTC month, on any plan; granted once per paid checkout, and audited. Needs "Manage the plan, payment details and invoices" (Owner only by default) | `GET /api/billing`, `POST /api/billing/checkout`, `POST /api/billing/credits/checkout`, `POST /api/billing/portal`, `POST /api/stripe/webhook` (Stripe-signed) | |
+| Billing: Free and Pro plans per organization, Pro raising the monthly AI budget. Upgrading opens Stripe Checkout; the Customer Portal changes the card, shows invoices and cancels (Pro stays until the paid period ends, and while Stripe retries a failed renewal). Plans come from `config/billing.php`; only the webhook changes a subscription, and plan changes are audited. AI credits: a one-time $10 pack (Stripe Checkout) adds to the AI budget for the rest of that UTC month, on any plan; granted once per paid checkout, and audited. Needs "Manage the plan, payment details and invoices" (Owner only by default) | `GET /api/billing`, `POST /api/billing/checkout`, `POST /api/billing/credits/checkout`, `POST /api/billing/portal`, `POST /api/stripe/webhook` (Stripe-signed) | `/billing` |
 
 Organization routes act on the user's **current** organization (`users.current_organization_id`). Tenant-owned models use the `BelongsToOrganization` trait, so another organization's records return 404.
 
@@ -162,6 +162,10 @@ Demo data with real Claude answers (Haiku), light mode.
 **AI usage** against the monthly budget, by feature and person.
 
 ![AI usage page with budget, totals and usage by feature](docs/screenshots/ai-usage.png)
+
+**Billing**: Free and Pro plans (Stripe Checkout and Customer Portal) and one-time AI credits.
+
+![Billing page on the Pro plan with a card on file and a $10 AI credit pack](docs/screenshots/billing.png)
 
 **Mobile**: the sidebar collapses into a menu.
 

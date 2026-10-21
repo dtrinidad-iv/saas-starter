@@ -84,7 +84,7 @@ class AiBudget
     /**
      * The current month's budget as the API shows it.
      *
-     * @return array{limit_usd: float, is_default: bool, plan: string, plan_limit_usd: float, credits_usd: float, spent_usd: float, remaining_usd: float}
+     * @return array{limit_usd: float, is_default: bool, own_limit_usd: float|null, plan: string, plan_limit_usd: float, credits_usd: float, spent_usd: float, remaining_usd: float}
      */
     public function summary(Organization $organization): array
     {
@@ -94,6 +94,8 @@ class AiBudget
         return [
             'limit_usd' => $limit,
             'is_default' => $organization->ai_monthly_budget_usd === null,
+            // What the owner set (without credits), for editing it; null uses the plan's.
+            'own_limit_usd' => $organization->ai_monthly_budget_usd === null ? null : (float) $organization->ai_monthly_budget_usd,
             'plan' => $this->plans->for($organization)->key,
             'plan_limit_usd' => $this->planLimit($organization),
             'credits_usd' => $this->credits($organization),

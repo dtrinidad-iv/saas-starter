@@ -45,13 +45,14 @@ Decisions taken: Laravel Cashier (new dependency, approved), Free/Pro tiers, cre
 - Docs: `.env.example`, README (Stripe setup, events to forward, env key, feature row), CLAUDE.md.
 - **Known limitations** (follow-up if needed): refunds and disputes don't take credits back (handle in Stripe and adjust manually); credits expire at the end of the UTC month they're bought in, even if bought on the last day (the billing page says until when).
 
-### 3. Billing page (web)
+### 3. Billing page (web) — built
 - `web/app/pages/billing.vue`: current plan + status, "Upgrade to Pro" / "Manage billing", credit packs with "Buy", AI budget meter; loading, error and no-permission states.
 - `?checkout=success` → toast and refetch a few times until the webhook lands; `?checkout=canceled` → neutral note.
 - Sidebar item "Billing" gated on `billing.manage`; `navigateTo(url, { external: true })`.
-- `ai-usage.vue`: show credits in the budget.
+- `ai-usage.vue`: show credits in the budget. The API also returns `own_limit_usd` (the owner's budget without credits), which the budget form edits.
+- The return polling stops on leaving the page or switching organization; credits compare against the amount saved before leaving for Checkout.
 
-### 4. Docs and screenshot
+### 4. Docs and screenshot — built (with step 3)
 - README feature row for credits and the billing page, screenshot `docs/screenshots/billing.png` (light, 1280×800, e2e demo data, fake provider); `.env.example` and CLAUDE.md for credits.
 
 ## Critical files

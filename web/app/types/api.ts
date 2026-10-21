@@ -13,6 +13,7 @@ export type Permission
     | 'ai.use'
     | 'ai_usage.view'
     | 'ai_budget.manage'
+    | 'billing.manage'
 
 /** An entry of GET /api/permissions. */
 export interface PermissionInfo {
@@ -191,10 +192,14 @@ export interface AiBudget {
   limit_usd: number
   /** No own budget: the plan's applies. */
   is_default: boolean
+  /** The organization's own budget (without credits); null when the plan's applies. */
+  own_limit_usd: number | null
   /** Plan key from config/billing.php, e.g. free or pro. */
   plan: string
   /** The most the plan allows; an own budget can only be lower. */
   plan_limit_usd: number
+  /** AI credits bought this month, on top of the budget. */
+  credits_usd: number
   spent_usd: number
   remaining_usd: number
   can_manage: boolean
@@ -223,4 +228,41 @@ export interface ProjectChatMessage {
   status: ChatMessageStatus
   model: string | null
   created_at: string
+}
+
+/** A plan from config/billing.php. */
+export interface BillingPlan {
+  key: string
+  name: string
+  display_price: string
+  ai_monthly_budget_usd: number
+  is_paid: boolean
+}
+
+/** A one-time AI credit pack from config/billing.php. */
+export interface CreditPack {
+  key: string
+  name: string
+  display_price: string
+  amount_usd: number
+  /** False until its Stripe price is configured. */
+  available: boolean
+}
+
+/** GET /api/billing (needs billing.manage). */
+export interface BillingOverview {
+  plan: BillingPlan
+  subscription: {
+    /** Stripe status: active, trialing, past_due, canceled, incomplete... */
+    status: string
+    /** Set once canceled: the plan stays until then. */
+    ends_at: string | null
+    on_grace_period: boolean
+  } | null
+  payment_method: { type: string, last_four: string | null } | null
+  /** A Stripe customer exists, so the billing portal can open. */
+  has_billing_account: boolean
+  plans: BillingPlan[]
+  credit_packs: CreditPack[]
+  ai_budget: Omit<AiBudget, 'can_manage'>
 }

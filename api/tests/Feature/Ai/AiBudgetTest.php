@@ -58,7 +58,8 @@ it('uses the configured default while the organization has no override', functio
     $this->getJson('/api/ai-usage')
         ->assertOk()
         ->assertJsonPath('data.budget.limit_usd', 3)
-        ->assertJsonPath('data.budget.is_default', true);
+        ->assertJsonPath('data.budget.is_default', true)
+        ->assertJsonPath('data.budget.own_limit_usd', null);
 });
 
 it('uses the organization\'s own budget when it is below the plan\'s', function () {
@@ -71,6 +72,7 @@ it('uses the organization\'s own budget when it is below the plan\'s', function 
     $this->getJson('/api/ai-usage')
         ->assertOk()
         ->assertJsonPath('data.budget.limit_usd', 10)
+        ->assertJsonPath('data.budget.own_limit_usd', 10)
         ->assertJsonPath('data.budget.plan', 'pro')
         ->assertJsonPath('data.budget.plan_limit_usd', 50)
         ->assertJsonPath('data.budget.is_default', false)

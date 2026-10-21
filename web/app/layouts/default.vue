@@ -28,6 +28,9 @@ const links = computed<NavigationMenuItem[]>(() => [
         ...(can('ai_usage.view')
           ? [{ label: 'AI usage', icon: 'i-lucide-sparkles', to: '/ai-usage', active: route.path.startsWith('/ai-usage') }]
           : []),
+        ...(can('billing.manage')
+          ? [{ label: 'Billing', icon: 'i-lucide-credit-card', to: '/billing', active: route.path.startsWith('/billing') }]
+          : []),
       ]
     : []),
 ])
