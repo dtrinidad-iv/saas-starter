@@ -19,7 +19,7 @@ A quick tour, as a user would see it:
    - **Ask AI:** a private chat about a project, which only you see.
 5. **Keep AI costs in check.** Every AI call is recorded with its tokens and cost. Each organization has a monthly AI budget, and AI stops when it's used up.
 6. **Pay for more.** Organizations start on **Free**. **Pro** (a monthly Stripe subscription) raises the AI budget, and one-time **AI credits** add to this month's budget on any plan. Card details, invoices and cancelling are handled on Stripe's own pages.
-7. **Manage your account.** Verify your email, reset a forgotten password, change your name, email or password, see where you're logged in and sign out other devices, or delete your account.
+7. **Manage your account.** Verify your email, reset a forgotten password, change your name, email or password, turn on two-factor authentication with an authenticator app, see where you're logged in and sign out other devices, or delete your account.
 8. **See what happened.** The **audit log** records who did what and when (members, roles, projects, AI reviews, plan changes and purchases), with before and after values.
 
 ## Key ideas
@@ -204,6 +204,7 @@ Every feature, with its API endpoints and web page. This is the detailed referen
 | Register, log in, log out, current user | `POST /api/register`, `/login`, `/logout`, `GET /api/me` | `/register`, `/login`, `/select-organization` (after login, for people in more than one organization) |
 | Email verification: a link is emailed on sign-up and after an email change. Until it's followed, a banner asks you to verify, and inviting people, accepting invitations, billing and AI are refused (403 `email_unverified`); everything else works. Accounts that existed before this feature count as verified | `POST /api/email/verify/{id}/{hash}` (signed), `POST /api/email/verification-notification` | Banner on every page, `/verify-email` (the emailed link) |
 | Password reset: a link by email (same answer whether or not the account exists), valid once for 60 minutes. Resetting signs out every device and logs you in | `POST /api/forgot-password`, `POST /api/reset-password` | "Forgot password?" on `/login`, `/forgot-password`, `/reset-password` |
+| Two-factor authentication (TOTP): turn it on by scanning a QR code with an authenticator app (Google Authenticator, 1Password, Authy) and entering a code; you get 8 one-time recovery codes. Then logging in, and finishing a password reset, ask for a code after the password (5 minutes, 5 tries; each code works once). Turning it on signs out your other devices; turning it on or off, and using a recovery code, emails you. Turning it off or making new recovery codes needs your password | `POST /api/account/two-factor`, `POST /api/account/two-factor/confirm`, `POST /api/account/two-factor/recovery-codes`, `DELETE /api/account/two-factor`; `POST /api/two-factor-challenge` (after login/reset) | Two-factor card on `/account`; code step on `/login` and `/reset-password` |
 | Account settings: change your name; change your email or password (needs your current password, signs out your other devices; a new email needs verifying and the old address is told); devices you're logged in on (browser, IP, last active) with sign out; delete your account (needs your password; refused while you're the last owner of an organization with other members or a paid subscription; organizations where you're the only member are deleted with their data, and you leave the rest) | `PATCH /api/account`, `PUT /api/account/email`, `PUT /api/account/password`, `DELETE /api/account`, `GET /api/account/devices`, `DELETE /api/account/devices/{id}` | `/account` (account menu > Account settings) |
 | Organizations: list, create, switch | `GET/POST /api/organizations`, `POST /api/organizations/{id}/switch` | Org switcher in the sidebar |
 | Members: list, change role, remove (at least one owner always remains) | `GET/PATCH/DELETE /api/members` | `/members` |
@@ -247,9 +248,13 @@ Demo data with real Claude answers (Haiku), light mode.
 
 ![Organization picker after login, listing three organizations with the last used one marked](docs/screenshots/select-organization.png)
 
-**Account settings**: profile, email, password, and the devices you're logged in on.
+**Account settings**: profile, email, password, two-factor authentication, and the devices you're logged in on.
 
-![Account settings with the password form and three signed-in devices](docs/screenshots/account.png)
+![Account settings with two-factor authentication on and three signed-in devices](docs/screenshots/account.png)
+
+**Two-factor setup**: scan the QR code with an authenticator app, or enter the key, then type the code it shows.
+
+![Two-factor setup dialog with a QR code, the key and a 6-digit code input](docs/screenshots/two-factor-setup.png)
 
 **Members** and pending invitations, with a role per person.
 
