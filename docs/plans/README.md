@@ -35,3 +35,4 @@ One file per task: `NN-task-name.md`, numbered in order. Each starts with a **St
 | 25 | [Platform admin foundation](25-platform-admin-foundation.md) | Done |
 | 26 | [Platform admin actions](26-platform-admin-actions.md) | Done |
 | 27 | [View as user (read-only impersonation)](27-view-as-user.md) | Done |
+| 28 | [CI on GitHub Actions](28-ci-github-actions.md) | WIP |

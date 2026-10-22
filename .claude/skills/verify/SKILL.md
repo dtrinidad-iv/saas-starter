@@ -15,6 +15,7 @@ Run from the repo root:
 
 - `api` runs Pint and Pest, `web` runs lint, typecheck and build, and `all` (the default) runs both.
 - The script finds PHP 8.4+ even if `php` on PATH is older, and switches to the Node version in `web/.nvmrc` through nvm.
+- CI (`.github/workflows/ci.yml`) runs the same steps on GitHub. When you add or change a step here, change it there too.
 - It ends with `ALL PASSED` or `FAILED: <steps>` and exits non-zero on failure.
 
 ## Reporting

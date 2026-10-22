@@ -10,6 +10,7 @@
 - Queue worker: `php artisan queue:work`
 - Web: `cd web && npm run dev`, `npm run build`, `npm run lint`
 - Always run `php artisan test` (api) and `npm run build` (web) before saying a task is done.
+- CI (`.github/workflows/ci.yml`) runs the `/verify` steps on every push to `main` and every PR, with no secrets and fake AI and billing. Keep the two in step when a check changes.
 - Never wipe a database. Dev and test share one Postgres, and `--env=testing` without an `.env.testing` uses `.env`. `migrate:fresh`/`refresh`/`reset`/`rollback` and `db:wipe` refuse to run unless the database name ends in `_test` (`AppServiceProvider::guardDestructiveDatabaseCommands`; `DB_ALLOW_DESTRUCTIVE_COMMANDS=true` for one deliberate run by the user), and `.claude/hooks/block-destructive-db.sh` blocks them, `dropdb` and `DROP`/`TRUNCATE` for Claude. Pest rebuilds its own database.
 
 ## Multi-organization model
