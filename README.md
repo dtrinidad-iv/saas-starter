@@ -1,5 +1,7 @@
 # SaaS Starter
 
+[![CI](https://github.com/dtrinidad-iv/saas-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/dtrinidad-iv/saas-starter/actions/workflows/ci.yml)
+
 **A working starting point for a team-based SaaS app**: a Laravel API (`api/`) and a Nuxt web app (`web/`) with organizations, roles and permissions, an audit log, AI features powered by Claude, Stripe billing, two-factor authentication and a platform admin area already built and tested.
 
 Instead of starting from an empty project, you start from an app that already handles the parts every SaaS needs and that are easy to get wrong: keeping each customer's data separate, deciding who may do what, keeping AI costs under control, taking payments, securing accounts, and supporting customers without seeing their data. You then build your own product on top. **Projects** are the example feature to copy or replace.
@@ -211,7 +213,9 @@ cd api && php artisan test           # Pest, against saas_starter_test
 cd api && vendor/bin/pint --test app routes tests database config bootstrap/app.php bootstrap/providers.php
 cd web && npm run lint && npm run typecheck && npm run build
 ```
-About 550 Pest tests cover the API. Every tenant-owned feature has a test proving organization A can't read or write organization B's data. Tests never call Claude or Stripe: they use fakes (`FakeAiClient`, `FakeBillingGateway`).
+About 880 Pest tests cover the API. Every tenant-owned feature has a test proving organization A can't read or write organization B's data. Tests never call Claude or Stripe: they use fakes (`FakeAiClient`, `FakeBillingGateway`).
+
+GitHub Actions runs the same checks on every push to `main` and every pull request (`.github/workflows/ci.yml`, no secrets needed). To block merging a pull request until they pass, add a branch protection rule for `main` (Settings > Branches) that requires the `API (Pint, Pest)` and `Web (lint, typecheck, build)` checks.
 
 ## API and pages
 
@@ -345,6 +349,7 @@ docs/plans/              One plan per task, with status (Proposed → WIP → Do
 docs/screenshots/        The images in this README
 CLAUDE.md                Conventions and rules for working on this repo (also used by Claude Code)
 .claude/                 Claude Code skills, agents and hooks (see below)
+.github/                 CI workflow (the same checks as verify.sh) and Dependabot for its actions
 ```
 
 **Adding your own feature:** follow how Projects is built (model with `BelongsToOrganization`, policy, Form Requests, Action, Resource, page, and an isolation test). The `/tenant-feature` skill in `.claude/` walks through it step by step.
