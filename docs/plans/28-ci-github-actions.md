@@ -1,6 +1,7 @@
 # 28 — CI on GitHub Actions
 
-**Status:** WIP
+**Status:** Done
+**Commits:** `10dc905` (ci, squash of PR #1)
 
 ## Goal
 Run the same checks as `/verify` (Pint, Pest, ESLint, nuxt typecheck, build) on GitHub for every push to `main` and every pull request, so a broken commit shows up even when nobody ran `verify.sh` locally. Right now those checks only run on a developer's machine.
